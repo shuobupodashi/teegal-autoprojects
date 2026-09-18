@@ -96,21 +96,21 @@ npm run electron:package:linux  # Linux
 | `VITE_HOME_WEB_URL` | 根目录 `.env` | 云端服务地址（不配置则使用默认官方服务） |
 | `VITE_ALIYUN_OSS_BUCKET` / `REGION` | 根目录 `.env` | 对象存储直传配置（凭证由云端动态下发） |
 | `GPU_WORKER_SECRET` | `local-backend/.env` | 云端 GPU 执行层服务间密钥 |
-| `HOME_WEB_URL` | `local-backend/.env` | 云端地址（同机部署默认即可） |
+| `HOME_WEB_URL` | `local-backend/.env` | 云端地址（不配置则默认官方服务） |
 
 完整说明见 `.env.example` 与 `local-backend/.env.example`。
 
-## 接入云端算力（可选）
+## 云端算力
 
 Teegal 采用 **hosted 云端执行架构**：本地不持有任何云厂商凭证，GPU 规格/价格/库存/结算全部由云端服务统一维护。
 
-1. 部署云端 GPU 执行服务（home-web server），在云端配置云厂商凭证与对象存储
-2. 本地 `local-backend/.env` 配置两个变量即可接入：
+- **开箱即用**：克隆后无需任何配置，云端算力默认接入官方服务（`https://www.workbees.space`），训练等重任务自动调度到云端执行
+- **自建云端（可选）**：如需指向自己的云端服务，在 `local-backend/.env` 配置：
    ```env
    GPU_WORKER_SECRET=your-worker-secret
    HOME_WEB_URL=https://your-cloud-service
    ```
-3. 训练任务自动提交云端执行，状态/日志/产物 URL 回传本地展示，费用云端结算
+   云端服务需自行部署（云端执行层代码不在本仓库中），负责配置云厂商凭证与对象存储；训练任务自动提交执行，状态/日志/产物 URL 回传本地展示
 
 > OSS 与 GPU 同理：谁运行云端，谁配置存储。开源代码中不含任何存储凭证。
 
@@ -219,21 +219,21 @@ npm run electron:package:linux  # Linux
 | `VITE_HOME_WEB_URL` | Root `.env` | Cloud service URL (defaults to the official service) |
 | `VITE_ALIYUN_OSS_BUCKET` / `REGION` | Root `.env` | Object storage direct-upload config (credentials are delivered by the cloud) |
 | `GPU_WORKER_SECRET` | `local-backend/.env` | Service-to-service secret for the cloud GPU execution layer |
-| `HOME_WEB_URL` | `local-backend/.env` | Cloud service URL (defaults to same-host deployment) |
+| `HOME_WEB_URL` | `local-backend/.env` | Cloud service URL (defaults to the official service) |
 
 See `.env.example` and `local-backend/.env.example` for details.
 
-## Connect Cloud Compute (Optional)
+## Cloud Compute
 
 Teegal uses a **hosted cloud execution architecture**: no cloud provider credentials live in the local codebase. GPU specs, pricing, availability, and settlement are all maintained by the cloud service.
 
-1. Deploy the cloud GPU execution service, configure provider credentials and object storage on the cloud side
-2. Point your local backend to it with two variables:
+- **Out of the box**: after cloning, zero configuration is needed — cloud compute defaults to the official service (`https://www.workbees.space`), and heavy tasks like training are scheduled to the cloud automatically
+- **Self-hosted cloud (optional)**: to point to your own cloud service, set in `local-backend/.env`:
    ```env
    GPU_WORKER_SECRET=your-worker-secret
    HOME_WEB_URL=https://your-cloud-service
    ```
-3. Training tasks are submitted to the cloud automatically; status, logs, and artifact URLs flow back to the local UI, with billing settled in the cloud
+   The cloud service needs to be deployed by yourself (the cloud execution layer is not part of this repository); it holds the provider credentials and object storage config. Training tasks are submitted automatically; status, logs, and artifact URLs flow back to the local UI
 
 > The same rule applies to object storage as to GPUs: whoever runs the cloud configures the storage. No storage credentials are bundled with the open-source code.
 

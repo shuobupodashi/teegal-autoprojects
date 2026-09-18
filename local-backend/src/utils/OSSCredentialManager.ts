@@ -42,7 +42,7 @@ export class OSSCredentialManager {
 
   constructor(homeWebUrl?: string) {
     // 🔥 默认指向 home-web (ECS 服务端)，可通过环境变量配置
-    this.homeWebUrl = homeWebUrl || process.env.HOME_WEB_URL || 'http://localhost:3002';
+    this.homeWebUrl = homeWebUrl || process.env.HOME_WEB_URL || 'https://www.workbees.space';
   }
 
   /**

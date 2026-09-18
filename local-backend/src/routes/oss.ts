@@ -115,7 +115,7 @@ router.post('/delete', async (req, res) => {
     });
 
     // 获取 OSS 配置用于删除
-    const homeWebUrl = process.env.HOME_WEB_URL || 'http://localhost:3002';
+    const homeWebUrl = process.env.HOME_WEB_URL || 'https://www.workbees.space';
 
     // 请求删除用的预签名 URL
     const presignResponse = await fetch(`${homeWebUrl}/api/oss-sts/presign-delete`, {

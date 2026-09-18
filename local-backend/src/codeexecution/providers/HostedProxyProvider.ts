@@ -45,7 +45,7 @@ export class HostedProxyProvider implements GpuCloudProvider {
   private specsCachePromise: Promise<GpuSpec[]> | null = null;
 
   constructor(config: HostedProxyConfig) {
-    this.baseUrl = (config.baseUrl || process.env.HOME_WEB_URL || 'http://localhost:3002').replace(/\/$/, '');
+    this.baseUrl = (config.baseUrl || process.env.HOME_WEB_URL || 'https://www.workbees.space').replace(/\/$/, '');
     this.secret = config.secret || process.env.GPU_WORKER_SECRET || '';
     if (!this.secret) {
       console.warn('[GPU-HOSTED] 警告：GPU_WORKER_SECRET 未配置，云端 API 调用将被拒绝');

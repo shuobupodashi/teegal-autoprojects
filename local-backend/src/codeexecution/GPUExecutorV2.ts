@@ -19,7 +19,7 @@ import { AppScheduler } from './AppScheduler';
 import { wrapUserCodeForGpu, wrapMultiFileCode, isNodeEntry, pickNodeSingleFileName } from './GpuWrapper';
 import axios from 'axios';
 
-const HOME_WEB_URL = process.env.HOME_WEB_URL || 'http://localhost:3002';
+const HOME_WEB_URL = process.env.HOME_WEB_URL || 'https://www.workbees.space';
 
 /**
  * GPU 执行配置
