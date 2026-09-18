@@ -1,0 +1,405 @@
+/**
+ * Local Execution Tools
+ * 本地代码执行工具集
+ *
+ * 🔥 本地执行工具：
+ * - run_project_onlocal: 本地执行项目代码（Python/Node/Shell），区别于 train_project 云端训练
+ * - list_localrun_logs: 列出本地执行日志
+ * - get_localrun_logdetail: 获取本地执行日志详情
+ */
+
+import { AutoStep, AutoToolResult } from "../auto/types";
+import { executeLocalCode } from "./LocalExecutor";
+import { executionLogStorage, desktopAppStorage } from "@/services/storage";
+import { checkGpuRequirement } from "./AppExecutionService";
+import { getAppBasePath } from "./AppPathHelper";
+import { resolveProjectId } from './ProjectIdResolver';
+
+// ============================================================================
+// 辅助函数
+// ============================================================================
+
+/**
+ * 从参数中提取 appId
+ */
+function extractAppId(params: any, stepAppId?: string): string | undefined {
+  return stepAppId ||
+    params?.appId || params?.appid || params?.app_id ||
+    params?.projectId || params?.projectid || params?.project_id ||
+    params?.id;
+}
+
+/**
+ * 🔥 解析 projectId 已抽取为共享实现：见 ./ProjectIdResolver.ts
+ * （UUID / 8位前缀 / 固定ID如 base-extensiontool 均可解析）
+ */
+
+/**
+ * 🔥 检查代码中是否包含 GPU 相关设置
+ * 
+ * 检测模式：
+ * - device='cuda', device='gpu', device='cuda:0' 等
+ * - torch.cuda, torch.device
+ * - .to('cuda'), .to('gpu'), .cuda()
+ * - CUDA_VISIBLE_DEVICES
+ */
+function checkGpuCode(code: string): { hasGpu: boolean; matches: string[] } {
+  const patterns = [
+    /device\s*[=:]\s*['"](cuda|gpu)/i,
+    /torch\.cuda/i,
+    /torch\.device\s*\(\s*['"](cuda|gpu)/i,
+    /\.to\s*\(\s*['"](cuda|gpu)/i,
+    /\.cuda\s*\(\s*\)/i,
+    /CUDA_VISIBLE_DEVICES/i,
+    /\.to\s*\(\s*torch\.device/i,
+  ];
+
+  const matches: string[] = [];
+  
+  for (const pattern of patterns) {
+    const match = code.match(pattern);
+    if (match) {
+      matches.push(match[0]);
+    }
+  }
+
+  return {
+    hasGpu: matches.length > 0,
+    matches,
+  };
+}
+
+// ============================================================================
+// 工具实现
+// ============================================================================
+
+/**
+ * 本地执行项目代码（run_project_onlocal）
+ *
+ * 在本地执行 Python/Node/Shell 代码，结果自动保存到 ExecutionLog
+ * 支持单文件和多文件项目
+ * 🔥 推荐使用此工具而非 userpcrunpython，因为执行日志会保存到数据库，可在 UI 中查看历史
+ *
+ * 用法: run_project_onlocal(projectId='xxx', code='print("hello")', language='python')
+ *       run_project_onlocal(projectId='xxx', mainFile='train.py')  # 多文件项目执行主入口
+ */
+export async function executeRunDevTool(
+  step: AutoStep,
+  _planId: string,
+  context?: { userId?: string }
+): Promise<AutoToolResult> {
+  const params = step.toolParams || step.parameters || {};
+
+  const appId = extractAppId(params, step.appId);
+  const userId = context?.userId;
+
+  if (!appId) {
+    return {
+      success: false,
+      error: "缺少 projectId 参数。用法: run_project_onlocal(projectId='xxx', code='...') 或 run_project_onlocal(projectId='xxx', mainFile='train.py')",
+    };
+  }
+
+  // 🔥 解析 projectId（支持完整UUID或前8位缩写）
+  const resolved = { id: '' };
+  const resolveError = await resolveProjectId(appId, resolved, userId);
+  if (resolveError) {
+    return { success: false, error: resolveError };
+  }
+  const fullAppId = resolved.id;
+
+  if (!userId) {
+    return {
+      success: false,
+      error: "缺少 userId，无法执行本地代码",
+    };
+  }
+
+  // 🔥 提取参数
+  const code = params?.code || params?.content;
+  const language = params?.language || 'auto';
+  const mainFile = params?.mainFile || params?.main_file || params?.fileName;
+  const timeout = params?.timeout ? parseInt(params.timeout) : 600;
+
+  // 🔥 执行语义：
+  // - 只传 projectId → 执行整个项目（底层自动探测入口：package.json scripts / main.py / app.py / index.js...）
+  // - 传 mainFile → 执行指定入口文件
+  // - 传 code → 临时单文件脚本（探索项目结构请用 userpc_shell 或 list_project_files，别用这个）
+  const isMultiFile = !!mainFile || !code?.trim();
+
+  if (!isMultiFile && !code?.trim()) {
+    return {
+      success: false,
+      error: "参数不足。用法: run_project_onlocal(projectId='xxx') 执行整个项目；或 run_project_onlocal(projectId='xxx', mainFile='train.py') 执行指定入口；或 code='...' 执行临时脚本",
+    };
+  }
+
+  // 🔥 GPU 代码安全检查
+  // 单文件项目：直接检查传入的 code 参数
+  // 多文件项目（有 mainFile）：读取 mainFile 内容进行检查
+  let codeToCheck = code || '';
+
+  if (isMultiFile && mainFile) {
+    try {
+      const electron = (window as any).electron;
+      const userDataPath = await getAppBasePath(fullAppId);
+      const normalizedPath = mainFile.replace(/\//g, '\\');
+      const fullPath = `${userDataPath}\\${normalizedPath}`;
+      
+      const result = await electron.userpcFile.read(fullPath);
+      if (result.success && result.data?.content) {
+        codeToCheck = result.data.content;
+      } else {
+        console.warn('[RUN-DEV] 无法读取 mainFile 进行安全检查:', mainFile, result.error);
+      }
+    } catch (e) {
+      console.warn('[RUN-DEV] 读取 mainFile 失败:', e);
+    }
+  }
+
+  if (codeToCheck && codeToCheck.trim()) {
+    const gpuCheck = checkGpuRequirement(codeToCheck);
+    if (gpuCheck.requiresGPU) {
+      console.warn('[RUN-DEV] 检测到 GPU 代码，拒绝本地执行:', gpuCheck.reason);
+      return {
+        success: false,
+        error: `🚫 检测到 GPU 相关代码，禁止本地执行。
+
+原因：${gpuCheck.reason}
+
+⚠️ 本地执行 GPU 代码可能导致本地算力崩溃或执行失败。
+
+💡 请使用云端运行路径：run_project_oncloud(projectId='${appId}', instanceType='GN7.2XLARGE32')
+
+� 如果确认要强制本地执行，请让用户在前端 UI 手动点击"运行"按钮。`,
+        statusCode: 403,
+      };
+    }
+  }
+
+  try {
+    console.log(`[RUN-DEV] 本地执行: appId=${fullAppId}, language=${language}, isMultiFile=${isMultiFile}`);
+
+    const result = await executeLocalCode(
+      {
+        code: code || '',
+        language,
+        timeout,
+        appId: fullAppId,
+        userId,
+        isMultiFile,
+        // 🔥 mainFile 缺省时传空串，底层 executeMultiFileProject 会自动探测项目入口
+        mainFile: mainFile || (isMultiFile ? '' : 'main.py'),
+      }
+    );
+
+    if (result.success) {
+      const outputPreview = result.output
+        ? (result.output.length > 2000 ? result.output.slice(0, 2000) + '\n...(输出过长已截断)' : result.output)
+        : '(无输出)';
+
+      return {
+        success: true,
+        data: {
+          type: 'localExecution',
+          logId: result.logId,
+          exitCode: result.exitCode,
+          duration: result.duration,
+          output: outputPreview,
+          message: `本地执行成功，耗时 ${(result.duration / 1000).toFixed(1)}秒，退出码 ${result.exitCode}\n\n输出:\n${outputPreview}`,
+        },
+      };
+    } else {
+      return {
+        success: false,
+        error: result.error || '本地执行失败',
+        data: {
+          type: 'localExecution',
+          logId: result.logId,
+          exitCode: result.exitCode,
+          duration: result.duration,
+          output: result.output?.slice(0, 500),
+        },
+      };
+    }
+  } catch (error) {
+    console.error('[RUN-DEV] 异常:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "本地执行失败",
+    };
+  }
+}
+
+/**
+ * 列出本地执行日志（list_localrun_logs）
+ *
+ * 获取指定项目的本地代码执行历史记录
+ *
+ * 用法: list_localrun_logs(projectId='xxx')
+ */
+export async function executeListExecutionLogsTool(
+  step: AutoStep,
+  _planId: string,
+  context?: { userId?: string }
+): Promise<AutoToolResult> {
+  const params = step.toolParams || step.parameters || {};
+
+  const appId = extractAppId(params, step.appId);
+  const userId = context?.userId;
+
+  if (!appId) {
+    return {
+      success: false,
+      error: "缺少 projectId 参数。用法: list_localrun_logs(projectId='xxx')",
+    };
+  }
+
+  // 🔥 解析 projectId（支持完整UUID或前8位缩写）
+  const resolved = { id: '' };
+  const resolveError = await resolveProjectId(appId, resolved, userId);
+  if (resolveError) {
+    return { success: false, error: resolveError };
+  }
+  const fullAppId = resolved.id;
+
+  try {
+    console.log(`[LIST-LOGS] 获取执行日志: appId=${fullAppId}`);
+
+    // 🔥 使用 summary 接口，不返回大字段（stdout_output 等）
+    const summaries = await executionLogStorage.getSummaryByAppId(fullAppId);
+
+    if (!summaries || summaries.length === 0) {
+      return {
+        success: true,
+        data: {
+          type: 'executionLogList',
+          appId: fullAppId,
+          logs: [],
+          logCount: 0,
+          message: `项目尚无本地执行记录。可以使用 run_project_onlocal(projectId='${appId}', code='...') 执行代码。`,
+        },
+      };
+    }
+
+    const totalCount = summaries.length;
+
+    // 🔥 分页：解析 morePage 参数（格式如 "11-20"）
+    const morePage = params?.morePage || params?.more_page;
+    let startIdx = 0;
+    let endIdx = 10;
+    if (morePage && typeof morePage === 'string') {
+      const match = morePage.match(/^(\d+)-(\d+)$/);
+      if (match) {
+        startIdx = Math.max(0, parseInt(match[1]) - 1);
+        endIdx = Math.min(totalCount, parseInt(match[2]));
+      }
+    }
+
+    const pagedSummaries = summaries.slice(startIdx, endIdx);
+
+    // 🔥 构造友好的摘要信息
+    let logSummary = `项目共有 ${totalCount} 条本地执行记录，当前展示第 ${startIdx + 1}-${Math.min(endIdx, totalCount)} 条：\n\n`;
+    pagedSummaries.forEach((log: any, index: number) => {
+      logSummary += `${startIdx + index + 1}. 日志ID: ${log.id}\n`;
+      logSummary += `   模式: ${log.execution_mode || 'python'}\n`;
+      logSummary += `   状态: ${log.status}\n`;
+      if (log.duration) logSummary += `   耗时: ${(log.duration / 1000).toFixed(1)}秒\n`;
+      if (log.exit_code !== null && log.exit_code !== undefined) logSummary += `   退出码: ${log.exit_code}\n`;
+      logSummary += `   时间: ${new Date(log.created_at).toLocaleString()}\n\n`;
+    });
+
+    logSummary += `💡 提示：使用 get_localrun_logdetail(logId='完整的UUID') 获取执行日志详情`;
+    if (totalCount > 10 && !morePage) {
+      logSummary += `\n⚠️ 总共有 ${totalCount} 条记录，默认返回最近 10 条。如需查看更早记录，请使用 list_localrun_logs(projectId='${appId}', morePage='11-20')`;
+    }
+
+    return {
+      success: true,
+      data: {
+        type: 'executionLogList',
+        appId: fullAppId,
+        logs: pagedSummaries,
+        logCount: totalCount,
+        message: logSummary,
+      },
+    };
+  } catch (error) {
+    console.error('[LIST-LOGS] 异常:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "获取执行日志失败",
+    };
+  }
+}
+
+/**
+ * 获取本地执行日志详情（get_localrun_logdetail）
+ *
+ * 获取单条本地执行日志的完整信息，包括输出内容
+ *
+ * 用法: get_localrun_logdetail(logId='xxx')
+ */
+export async function executeGetLogDetailTool(
+  step: AutoStep,
+  _planId: string,
+  context?: { userId?: string }
+): Promise<AutoToolResult> {
+  const params = step.toolParams || step.parameters || {};
+
+  // 🔥 提取 logId（支持多种参数名）
+  const logId = params?.logId || params?.logid || params?.log_id || params?.id;
+
+  if (!logId) {
+    return {
+      success: false,
+      error: "缺少 logId 参数。用法: get_localrun_logdetail(logId='xxx')",
+    };
+  }
+
+  try {
+    console.log(`[LOG-DETAIL] 获取执行日志详情: logId=${logId}`);
+
+    const log = await executionLogStorage.getById(logId);
+
+    if (!log) {
+      return {
+        success: false,
+        error: `执行日志不存在: ${logId}`,
+      };
+    }
+
+    // 🔥 构造友好的详情信息
+    let outputSummary = '';
+    const stdout = (log as any).stdout_output || '';
+    const stderr = (log as any).stderr_output || '';
+
+    if (stdout) {
+      const lines = stdout.split('\n');
+      outputSummary = `\n\n📝 标准输出 (共${lines.length}行):\n`;
+      outputSummary += lines.length <= 50
+        ? stdout
+        : `前20行:\n${lines.slice(0, 20).join('\n')}\n...\n后20行:\n${lines.slice(-20).join('\n')}`;
+    }
+
+    if (stderr) {
+      outputSummary += `\n\n⚠️ 标准错误:\n${stderr.slice(0, 1000)}`;
+    }
+
+    return {
+      success: true,
+      data: {
+        type: 'executionLogDetail',
+        logId,
+        log,
+        message: `执行模式: ${(log as any).execution_mode || 'python'}\n状态: ${(log as any).status}\n退出码: ${(log as any).exit_code}\n耗时: ${((log as any).duration || 0) / 1000}秒${outputSummary}`,
+      },
+    };
+  } catch (error) {
+    console.error('[LOG-DETAIL] 异常:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "获取执行日志详情失败",
+    };
+  }
+}

@@ -1,0 +1,67 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teegal</title>
+    <meta name="description" content="Teegal is a personal tag along" />
+    <meta name="author" content="WorkBees" />
+
+    <!-- Favicon 配置 -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+
+    <meta property="og:title" content="Teegal" />
+    <meta property="og:description" content="Teegal is a personal tag along" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://www.workbees.space" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@Teegal" />
+    <meta name="twitter:image" content="https://www.workbees.space" />
+    <meta name="baidu-site-verification" content="codeva-AGP6FHODoD" />
+
+    <!-- 生产环境禁用 console 输出 (支持 ?debug=true 启用) -->
+      <script>
+      (function() {
+        // 生产环境域名列表 - 基于hostname判断，不受路径影响
+        const productionDomains = [
+          'workbees.space',         // 主域名
+          '.workbees.space',        // 所有子域名
+        ];
+        
+        // 测试环境标识（带有preview--前缀）
+        const isPreview = window.location.hostname.includes('preview--');
+        
+        // 🔥 调试模式：URL 中带 ?debug=5016 时启用 console（严格验证）
+        const debugMode = new URLSearchParams(window.location.search).get('debug') === '5016';
+        
+        // 检查当前域名是否在生产环境列表中且不是测试环境
+        const isProduction = !isPreview && productionDomains.some(domain => 
+          window.location.hostname.includes(domain)
+        );
+        
+        // 生产环境禁用所有console输出，除非启用调试模式
+        if (isProduction && !debugMode) {
+          // 覆盖所有console方法
+          console.log = console.warn = console.info = console.error = 
+          console.debug = console.table = console.group = function() {};
+        }
+        
+        // 如果启用了调试模式，在 console 显示
+        if (debugMode) {
+          console.log('🔐 调试模式已启用（debug=5016）！HostName:', window.location.hostname);
+          console.log('⏰ 时间戳:', new Date().toISOString());
+        }
+      })();
+    </script>
+
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,23 @@
+node_modules/
+dist/
+logs/
+*.log
+.env
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Deployment packages
+backend-dist.zip
+
+
+# 临时文件
+ecs-async-worker/temp/
+*.mp4
+
+# 文档草稿
+ADVANCED_VIDEO_EDIT_*.md
+ADVANCED_VIDEO_EDIT_*.txt

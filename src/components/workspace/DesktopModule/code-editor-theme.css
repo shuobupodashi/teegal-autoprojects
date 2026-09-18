@@ -1,0 +1,286 @@
+/* 自定义代码高亮主题 - 现代鲜艳配色 */
+
+/* 基础样式 */
+code[class*="language-"],
+pre[class*="language-"] {
+  color: #2d2d2d;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  word-wrap: normal;
+  -moz-tab-size: 4;
+  -o-tab-size: 4;
+  tab-size: 4;
+  -webkit-hyphens: none;
+  -moz-hyphens: none;
+  -ms-hyphens: none;
+  hyphens: none;
+}
+
+/* 限定在 CodeEditor 组件内的 textarea 样式 */
+.CodeEditor-container textarea {
+  white-space: pre !important;
+  word-wrap: normal !important;
+  overflow-wrap: normal !important;
+  line-height: 22px !important;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  margin: 0 !important;
+  padding: 12px !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  resize: none !important;
+  border: none !important;
+  outline: none !important;
+  background-color: transparent !important;
+  color: transparent !important;
+  caret-color: black !important;
+}
+
+/* 注释 - 灰色 */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #6b7280;
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* 字符串 - 亮橙色 */
+.token.string,
+.token.attr-value {
+  color: #f97316;
+  font-weight: 600;
+}
+
+/* 关键字 - 深紫色 */
+.token.keyword,
+.token.tag {
+  color: #7c3aed;
+  font-weight: 700;
+}
+
+/* 函数名 - 深蓝色（替换原来的亮蓝，减少满屏淡蓝感） */
+.token.function {
+  color: #1e40af;
+  font-weight: 600;
+}
+
+/* 类名/类型 - 琥珀黄（黄系高亮，和关键字紫形成对比） */
+.token.class-name {
+  color: #ca8a04;
+  font-weight: 600;
+}
+
+/* 数字 - 亮红色 */
+.token.number {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+/* URL - 亮天蓝色（链接语义保留蓝色系）；运算符改中性深灰，不再和 URL 抢蓝色 */
+.token.url {
+  color: #0ea5e9;
+  font-weight: 600;
+}
+
+/* 运算符/实体 - 中性深灰（运算符出现频率极高，用彩色会刷屏） */
+.token.operator,
+.token.entity,
+.language-css .token.string,
+.style .token.string {
+  color: #475569;
+  font-weight: 500;
+}
+
+/* 变量 - 亮红色 */
+.token.variable {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* 常量 - 亮紫色 */
+.token.constant {
+  color: #a855f7;
+  font-weight: 600;
+}
+
+/* 属性名 - 亮青色 */
+.token.attr-name,
+.token.selector {
+  color: #06b6d4;
+  font-weight: 600;
+}
+
+/* 标签名 - 深灰色 */
+.token.punctuation {
+  color: #4b5563;
+  font-weight: 500;
+}
+
+/* 正则表达式 - 亮绿色 */
+.token.regex {
+  color: #10b981;
+  font-weight: 600;
+}
+
+/* 重要标记 - 亮红色 */
+.token.important {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+/* 布尔值 - 深蓝色（与函数名同系） */
+.token.boolean {
+  color: #1e40af;
+  font-weight: 600;
+}
+
+/* null/undefined - 深灰色 */
+.token.null,
+.token.undefined {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* 属性 - 亮紫色 */
+.token.property {
+  color: #8b5cf6;
+  font-weight: 600;
+}
+
+/* 插入的文本 */
+.token.inserted {
+  color: #10b981;
+  font-weight: 600;
+}
+
+/* 删除的文本 */
+.token.deleted {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+/* 斜体 */
+.token.italic {
+  font-style: italic;
+}
+
+/* 粗体 */
+.token.bold {
+  font-weight: 700;
+}
+
+/* 命名空间 */
+.token.namespace {
+  opacity: 0.7;
+}
+
+/* 🔥 符号出现位置高亮 */
+mark.occurrence-highlight {
+  background-color: rgba(250, 204, 21, 0.35); /* 黄色半透明背景 */
+  border-radius: 2px;
+  color: inherit; /* 保持原来的文字颜色 */
+  font-weight: inherit; /* 保持原来的字体粗细 */
+}
+
+/* 🔥 当前选中的出现位置（更亮的高亮） */
+mark.occurrence-highlight.selected {
+  background-color: rgba(59, 130, 246, 0.35); /* 蓝色半透明背景 */
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.5);
+}
+
+/* 🔥 符号出现位置 minimap 样式 */
+.occurrence-minimap {
+  pointer-events: none; /* 默认不拦截事件，让标记点可点击 */
+  z-index: 10;
+}
+
+.occurrence-marker {
+  z-index: 20;
+  pointer-events: auto;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* 🔥 搜索高亮 */
+mark.search-highlight {
+  background-color: rgba(251, 146, 60, 0.35); /* 橙色半透明背景 */
+  border-radius: 2px;
+  color: inherit;
+  font-weight: inherit;
+}
+
+/* 🔥 当前搜索结果高亮（更亮） */
+mark.search-highlight-current {
+  background-color: rgba(251, 146, 60, 0.6); /* 更深的橙色背景 */
+  box-shadow: inset 0 0 0 1px rgba(251, 146, 60, 0.8);
+}
+
+/* 🔥 搜索框样式 */
+.code-editor-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background-color: #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+  position: relative;
+  z-index: 20;
+}
+
+.code-editor-search-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  background-color: white;
+}
+
+.code-editor-search-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.code-editor-search-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #6b7280;
+  transition: all 0.15s;
+}
+
+.code-editor-search-button:hover {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.code-editor-search-button.active {
+  background-color: #dbeafe;
+  color: #3b82f6;
+}
+
+.code-editor-search-count {
+  font-size: 12px;
+  color: #6b7280;
+  min-width: 40px;
+  text-align: right;
+}

@@ -1,0 +1,254 @@
+name: Build Electron App
+
+on:
+  push:
+    tags:
+      - 'v*' # 推送 v1.2.84 等 tag 时触发
+  workflow_dispatch: # 手动触发
+
+permissions:
+  contents: write # 允许创建 Release
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install local-backend dependencies
+        run: cd local-backend && npm ci
+
+      - name: Build better-sqlite3 for Electron (Windows)
+        run: |
+          cd local-backend/node_modules/better-sqlite3
+          npx prebuild-install --runtime=electron --target=40.2.1 --arch=x64 --force
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build local-backend
+        run: cd local-backend && npm run build
+
+      - name: Build Electron
+        run: npm run electron:build
+
+      - name: Package Windows
+        run: npx electron-builder --win --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 🔥 直接上传到 GitHub Release，不用 artifact 中转（避免存储配额问题）
+      # 只上传需要的文件（latest.yml 用于自动更新），跳过 builder-debug.yml 避免同名冲突
+      - name: Upload to GitHub Release
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          # 🔥 带重试：GitHub API 偶发 502 时 create 失败，回退 upload 也找不到 Release 会误报
+          # "release not found"。create/upload 各重试 5 次，覆盖瞬时故障与并发创建两种情况
+          for i in 1 2 3 4 5; do
+            if gh release create "$TAG" release/*.exe release/latest.yml --generate-notes --repo "${{ github.repository }}"; then
+              exit 0
+            fi
+            echo "create 第 $i 次失败（已存在或瞬时故障），尝试 upload..."
+            sleep 15
+            if gh release upload "$TAG" release/*.exe release/latest.yml --clobber --repo "${{ github.repository }}"; then
+              exit 0
+            fi
+            echo "upload 第 $i 次失败，等待后重试..."
+            sleep 15
+          done
+          exit 1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install local-backend dependencies
+        run: cd local-backend && npm ci
+
+      - name: Rebuild better-sqlite3 for Electron (macOS)
+        run: |
+          cd local-backend/node_modules/better-sqlite3
+          # 🔥 macOS: 先尝试 arm64 (Apple Silicon)，再尝试 x64 (Intel Mac)
+          npx prebuild-install --runtime=electron --target=40.2.1 --arch=arm64 --force || \
+          npx prebuild-install --runtime=electron --target=40.2.1 --arch=x64 --force || \
+          npx --yes node-gyp rebuild --runtime=electron --target=40.2.1 --dist-url=https://electronjs.org/headers
+        # 🔥 不再 continue-on-error，构建失败应该报错而不是静默通过
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build local-backend
+        run: cd local-backend && npm run build
+
+      - name: Build Electron
+        run: npm run electron:build
+
+      - name: Package macOS
+        run: npx electron-builder --mac --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 🔥 直接上传到 GitHub Release，不用 artifact 中转
+      # 只上传需要的文件（latest-mac.yml 用于自动更新），跳过 builder-debug.yml 避免同名冲突
+      - name: Upload to GitHub Release
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          # 🔥 带重试（同 Windows）：防 GitHub API 瞬时 502 导致误报 release not found
+          for i in 1 2 3 4 5; do
+            if gh release create "$TAG" release/*.dmg release/*.zip release/latest-mac.yml --generate-notes --repo "${{ github.repository }}"; then
+              exit 0
+            fi
+            echo "create 第 $i 次失败（已存在或瞬时故障），尝试 upload..."
+            sleep 15
+            if gh release upload "$TAG" release/*.dmg release/*.zip release/latest-mac.yml --clobber --repo "${{ github.repository }}"; then
+              exit 0
+            fi
+            echo "upload 第 $i 次失败，等待后重试..."
+            sleep 15
+          done
+          exit 1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-to-oss:
+    needs: [build-windows, build-mac]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      # 🔥 从 GitHub Release 下载文件（替代 artifact 下载）
+      - name: Download release files
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          mkdir -p release
+          # 🔥 带重试：防 GitHub API 瞬时 502 误报 release not found
+          for i in 1 2 3 4 5; do
+            if gh release download "$TAG" --dir release/ --repo "${{ github.repository }}"; then
+              exit 0
+            fi
+            echo "download 第 $i 次失败，等待后重试..."
+            sleep 15
+          done
+          exit 1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js for OSS upload
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install ali-oss
+        run: npm install ali-oss
+
+      - name: Upload to OSS
+        run: |
+          node -e "
+            const OSS = require('ali-oss');
+            const fs = require('fs');
+            const path = require('path');
+
+            const client = new OSS({
+              region: process.env.OSS_REGION,
+              bucket: process.env.OSS_BUCKET,
+              accessKeyId: process.env.OSS_ACCESS_KEY_ID,
+              accessKeySecret: process.env.OSS_ACCESS_KEY_SECRET,
+              timeout: 600000,
+            });
+
+            const version = '${{ github.ref_name }}'.replace('v', '');
+            const releaseDir = './release';
+
+            async function upload() {
+              const files = fs.readdirSync(releaseDir);
+              console.log('Found files:', files);
+
+              for (const file of files) {
+                const filePath = path.join(releaseDir, file);
+                const stat = fs.statSync(filePath);
+
+                if (!stat.isFile()) continue;
+
+                let ossPath;
+                if (file.endsWith('.exe')) {
+                  ossPath = 'updates/' + file;
+                } else if (file.endsWith('.dmg') || file.endsWith('.zip')) {
+                  ossPath = 'updates/' + file;
+                } else if (file.endsWith('.yml')) {
+                  ossPath = 'updates/' + file;
+                } else {
+                  ossPath = 'updates/' + file;
+                }
+
+                console.log('Uploading:', file, '->', ossPath);
+                await client.multipartUpload(ossPath, filePath, {
+                  parallel: 4,
+                  partSize: 10 * 1024 * 1024,
+                  headers: {
+                    'Content-Type': 'application/octet-stream',
+                    'Cache-Control': 'no-cache'
+                  }
+                });
+                console.log('Uploaded:', 'https://' + process.env.OSS_BUCKET + '.oss-cn-hangzhou.aliyuncs.com/' + ossPath);
+              }
+
+              // Update downloads link for Windows
+              const exeFile = files.find(f => f.endsWith('.exe'));
+              if (exeFile) {
+                const exePath = path.join(releaseDir, exeFile);
+                console.log('Updating downloads link...');
+                await client.multipartUpload('downloads/teegal-setup.exe', exePath, {
+                  parallel: 4,
+                  partSize: 10 * 1024 * 1024,
+                });
+                console.log('Downloads link updated: https://bb-1storage.oss-cn-hangzhou.aliyuncs.com/downloads/teegal-setup.exe');
+              }
+
+              // Update downloads link for macOS
+              const dmgFile = files.find(f => f.endsWith('.dmg'));
+              if (dmgFile) {
+                const dmgPath = path.join(releaseDir, dmgFile);
+                console.log('Updating macOS downloads link...');
+                await client.multipartUpload('downloads/Teegal-mac.dmg', dmgPath, {
+                  parallel: 4,
+                  partSize: 10 * 1024 * 1024,
+                });
+                console.log('macOS Downloads link updated: https://bb-1storage.oss-cn-hangzhou.aliyuncs.com/downloads/Teegal-mac.dmg');
+              }
+            }
+
+            upload().catch(err => {
+              console.error('Upload failed:', err);
+              process.exit(1);
+            });
+          "
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
+          OSS_REGION: ${{ secrets.OSS_REGION }}

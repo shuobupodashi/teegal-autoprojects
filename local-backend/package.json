@@ -1,0 +1,48 @@
+{
+  "name": "local-backend",
+  "version": "1.0.0",
+  "description": "Teegal 桌面应用本地后端 - 文件处理、模型管理、数据存储",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only -r dotenv/config src/server.ts",
+    "build": "tsc && node obfuscate-build.js",
+    "build:plain": "tsc",
+    "encrypt-env": "node obfuscate-build.js --encrypt-only",
+    "start": "node dist/server.js",
+    "check-deps": "ts-node src/utils/DependencyChecker.ts check",
+    "check-local": "npm run check-deps && echo '✅ 本地环境就绪'"
+  },
+  "keywords": [
+    "async-worker",
+    "websocket",
+    "polling"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "better-sqlite3": "^12.9.0",
+    "cors": "^2.8.5",
+    "dockerode": "^4.0.9",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0",
+    "uuid": "^9.0.0",
+    "ws": "^8.14.2",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.14",
+    "@types/express": "^4.17.18",
+    "@types/node": "^20.8.0",
+    "@types/node-fetch": "^2.6.13",
+    "@types/uuid": "^9.0.3",
+    "@types/ws": "^8.5.6",
+    "electron-rebuild": "^3.2.9",
+    "javascript-obfuscator": "^5.4.3",
+    "ts-node": "^10.9.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.2.2"
+  }
+}

@@ -1,0 +1,728 @@
+!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>生成 WorkBees 图标</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            padding: 40px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; margin-bottom: 24px; }
+        .preview-section {
+            display: flex;
+            gap: 24px;
+            margin: 20px 0;
+            align-items: center;
+        }
+        canvas {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        .preview-info {
+            flex: 1;
+        }
+        .preview-info h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        .preview-info p {
+            color: #666;
+            line-height: 1.6;
+        }
+        .buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #10B981;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #059669;
+        }
+        .btn-secondary {
+            background: #3B82F6;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #2563EB;
+        }
+        .btn-info {
+            background: #F59E0B;
+            color: white;
+        }
+        .btn-info:hover {
+            background: #D97706;
+        }
+        .instructions {
+            background: #FEF3C7;
+            border-left: 4px solid #F59E0B;
+            padding: 16px;
+            margin: 24px 0;
+            border-radius: 4px;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #92400E;
+        }
+        .instructions ol {
+            margin: 0;
+            padding-left: 24px;
+            color: #78350F;
+        }
+        .instructions li {
+            margin: 8px 0;
+        }
+        .instructions code {
+            background: #FDE68A;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .instructions a {
+            color: #2563EB;
+            text-decoration: underline;
+        }
+        .note {
+            background: #DBEAFE;
+            border-left: 4px solid #3B82F6;
+            padding: 12px;
+            margin: 16px 0;
+            border-radius: 4px;
+            color: #1E40AF;
+        }
+        /* 🔥 配色方案选择器 */
+        .theme-section {
+            margin: 24px 0;
+        }
+        .theme-section h3 {
+            color: #555;
+            margin-bottom: 12px;
+        }
+        .theme-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .theme-btn {
+            padding: 10px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .theme-btn:hover {
+            border-color: #3B82F6;
+            transform: translateY(-1px);
+        }
+        .theme-btn.active {
+            border-color: #10B981;
+            background: #ECFDF5;
+        }
+        .theme-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.1);
+            flex-shrink: 0;
+        }
+        /* 🔥 比例调节 */
+        .ratio-section {
+            margin: 24px 0;
+            padding: 16px;
+            background: #F8FAFC;
+            border-radius: 8px;
+            border: 1px solid #E2E8F0;
+        }
+        .ratio-section h3 {
+            color: #555;
+            margin-bottom: 12px;
+            margin-top: 0;
+        }
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 10px 0;
+        }
+        .slider-row label {
+            width: 80px;
+            font-size: 14px;
+            color: #555;
+        }
+        .slider-row input[type="range"] {
+            flex: 1;
+            min-width: 120px;
+        }
+        .slider-row span {
+            width: 42px;
+            text-align: right;
+            font-family: monospace;
+            font-size: 13px;
+            color: #666;
+        }
+        .btn-reset {
+            padding: 8px 16px;
+            font-size: 14px;
+            border: 1px solid #CBD5E1;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .btn-reset:hover {
+            background: #F1F5F9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐝 WorkBees 图标生成器</h1>
+        
+        <div class="note">
+            ⚡ 使用 <code>workbees-logo.tsx</code> 的 <strong>workspace variant</strong> 绘制逻辑，与 Navbar 上的 Logo 完全一致！
+        </div>
+
+        <!-- 🔥 配色方案选择器 -->
+        <div class="theme-section">
+            <h3>🎨 配色方案（形状不变，只改颜色）</h3>
+            <div class="theme-buttons" id="themeButtons">
+                <!-- 动态生成 -->
+            </div>
+        </div>
+
+        <!-- 🔥 比例调节 -->
+        <div class="ratio-section">
+            <h3>⚖️ 形状比例（微调头/眼/脚）</h3>
+            <div class="slider-row">
+                <label for="headScale">头部大小</label>
+                <input type="range" id="headScale" min="0.85" max="1.15" step="0.01" value="1">
+                <span id="headScaleValue">1.00</span>
+            </div>
+            <div class="slider-row">
+                <label for="eyeScale">眼睛大小</label>
+                <input type="range" id="eyeScale" min="0.7" max="1.4" step="0.01" value="1">
+                <span id="eyeScaleValue">1.00</span>
+            </div>
+            <div class="slider-row">
+                <label for="footScale">脚部大小</label>
+                <input type="range" id="footScale" min="0.85" max="1.2" step="0.01" value="1">
+                <span id="footScaleValue">1.00</span>
+            </div>
+            <button class="btn-reset" onclick="resetRatios()">重置比例</button>
+        </div>
+        
+        <div class="preview-section">
+            <div>
+                <h3>256x256 预览</h3>
+                <canvas id="canvas256" width="256" height="256"></canvas>
+            </div>
+            <div>
+                <h3>512x512 预览</h3>
+                <canvas id="canvas512" width="512" height="512"></canvas>
+            </div>
+        </div>
+
+        <!-- 🔥 小尺寸预览：模拟 Windows 任务栏/标题栏渲染效果（放大显示，像素级还原） -->
+        <div class="preview-section" style="align-items: flex-end;">
+            <div>
+                <h3>16px（标题栏）</h3>
+                <canvas id="canvas16" width="16" height="16" style="width: 80px; height: 80px; image-rendering: pixelated; border-radius: 4px;"></canvas>
+            </div>
+            <div>
+                <h3>32px（任务栏）</h3>
+                <canvas id="canvas32" width="32" height="32" style="width: 80px; height: 80px; image-rendering: pixelated; border-radius: 4px;"></canvas>
+            </div>
+            <div>
+                <h3>48px（Alt+Tab）</h3>
+                <canvas id="canvas48" width="48" height="48" style="width: 80px; height: 80px; image-rendering: pixelated; border-radius: 4px;"></canvas>
+            </div>
+            <div>
+                <h3>64px（桌面）</h3>
+                <canvas id="canvas64" width="64" height="64" style="width: 80px; height: 80px; image-rendering: pixelated; border-radius: 4px;"></canvas>
+            </div>
+        </div>
+        
+        <div class="buttons">
+            <button class="btn-primary" onclick="downloadPNG(256)">下载 PNG (256x256)</button>
+            <button class="btn-secondary" onclick="downloadPNG(512)">下载 PNG (512x512)</button>
+            <button class="btn-info" onclick="downloadPNG(1024)">下载 PNG (1024x1024)</button>
+        </div>
+
+        <div style="margin-top: 12px; padding: 10px; background: #f0f0f0; border-radius: 6px; font-size: 13px; color: #555;">
+            📌 当前选中：<strong id="currentThemeLabel" style="color: #000;">原版（彩虹）</strong>
+            &nbsp;|&nbsp; 比例：头 <span id="debugHead">1.00</span> / 眼 <span id="debugEye">1.00</span> / 脚 <span id="debugFoot">1.00</span>
+        </div>
+
+        <div class="instructions">
+            <h3>📝 使用说明</h3>
+            <ol>
+                <li>点击上方配色方案按钮选择喜欢的风格</li>
+                <li>点击下载按钮下载 PNG 图标（推荐 256x256 或 1024x1024）</li>
+                <li>访问在线转换工具：<a href="https://convertio.co/zh/png-ico/" target="_blank">https://convertio.co/zh/png-ico/</a></li>
+                <li>上传下载的 PNG 文件，转换为 ICO 格式</li>
+                <li>将 ICO 文件保存到项目的 <code>public/favicon.ico</code></li>
+                <li>重新启动 Electron 应用即可看到新图标</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 根据 workbees-logo.tsx 的 workspace variant 绘制图标
+         * 对应代码：src/components/ui/workbees-logo.tsx 第 134-191 行
+         *
+         * workspace variant 特点：
+         * - 头部（长方形，有圆角）
+         * - 眼睛（两个椭圆）
+         * - 渐变色脚（大圆形）
+         *
+         * 🔥 配色方案：形状完全不变，只替换颜色
+         */
+
+        // ===== 配色方案定义 =====
+        // 3 个系列：原版、宝格丽（黑头+固定黄眼+变色渐变角）、手绘透明黑脚
+        const THEMES = {
+            original: {
+                name: '原版（彩虹）',
+                gradient: ['#10B981', '#3B82F6', '#F59E0B'],
+                head: '#000000',
+                stroke: '#343434',
+                eye: '#FFFFFF',
+            },
+            // 🔥 宝格丽系列：黑头 + 固定黄眼 + 2色渐变角（脚）
+            // 眼睛永远是黄色 #FFD700，只换脚的渐变色
+            bvlgariBlueCyan: {
+                name: '宝格丽（蓝青渐变）',
+                gradient: ['#4A53FF', '#ACFFFF'],  // 蓝→浅青
+                head: '#000000', stroke: '#000000',
+                eye: '#FFD700',
+                footFill: true, headFill: true, sketchy: false,
+            },
+            bvlgariPinkCream: {
+                name: '宝格丽（粉奶渐变）',
+                gradient: ['#FF7BE1', '#FCE3BF'],  // 粉→奶油
+                head: '#000000', stroke: '#000000',
+                eye: '#FFD700',
+                footFill: true, headFill: true, sketchy: false,
+            },
+            bvlgariCoralPink: {
+                name: '宝格丽（珊瑚渐变）',
+                gradient: ['#FF7374', '#FDB5E3'],  // 珊瑚→浅粉
+                head: '#000000', stroke: '#000000',
+                eye: '#FFD700',
+                footFill: true, headFill: true, sketchy: false,
+            },
+            // 🔥 补充几个同风格 2 色渐变
+            bvlgariPurpleLavender: {
+                name: '宝格丽（紫薰渐变）',
+                gradient: ['#7B61FF', '#E0C3FC'],  // 紫→薰衣草
+                head: '#000000', stroke: '#000000',
+                eye: '#FFD700',
+                footFill: true, headFill: true, sketchy: false,
+            },
+            bvlgariGreenMint: {
+                name: '宝格丽（绿薄荷渐变）',
+                gradient: ['#08F7C6', '#6FE6C2'],  // 翠绿→薄荷
+                head: '#000000', stroke: '#000000',
+                eye: '#FFD700',
+                footFill: true, headFill: true, sketchy: false,
+            },
+            bvlgariSunset: {
+                name: '宝格丽（日落渐变）',
+                gradient: ['#FF6B6B', '#FFE66D'],  // 珊瑚红→暖黄
+                head: '#000000', stroke: '#000000',
+                eye: '#FFD700',
+                footFill: true, headFill: true, sketchy: false,
+            },
+            bvlgariOcean: {
+                name: '宝格丽（深海渐变）',
+                gradient: ['#0093E9', '#80D0C7'],  // 海蓝→青绿
+                head: '#000000', stroke: '#000000',
+                eye: '#FFD700',
+                footFill: true, headFill: true, sketchy: false,
+            },
+            bvlgariAmber: {
+                name: '宝格丽（琥珀渐变）',
+                gradient: ['#F76B1C', '#FAD961'],  // 橙→金黄
+                head: '#000000', stroke: '#000000',
+                eye: '#FFD700',
+                footFill: true, headFill: true, sketchy: false,
+            },
+            // 🔥 深海脚 + 粉紫渐变头系列：Instagram 风格的暖色头部 + 冷色脚
+            // 脚统一用深海渐变 #0093E9→#80D0C7，头部粉紫渐变做变化
+            bvlgariOceanIg1: {
+                name: '深海+Instagram紫粉头',
+                gradient: ['#0093E9', '#80D0C7'],
+                headGradient: ['#833AB4', '#E1306C'],  // Instagram 经典紫→粉
+                head: '#833AB4', stroke: '#5C1A8E',
+                eye: '#FFD700',
+                footFill: true, headFill: true, sketchy: false,
+            },
+            bvlgariOceanIg2: {
+                name: '深海+深紫玫红头',
+                gradient: ['#0093E9', '#80D0C7'],
+                headGradient: ['#2D0A4E', '#FF1493'],  // 深紫→亮玫红
+                head: '#2D0A4E', stroke: '#2D0A4E',
+                eye: '#FFD700',
+                footFill: true, headFill: true, sketchy: false,
+            },
+            bvlgariOceanIg3: {
+                name: '深海+靛蓝火粉头',
+                gradient: ['#0093E9', '#80D0C7'],
+                headGradient: ['#3D1B6B', '#FF6B9D'],  // 靛蓝→火粉
+                head: '#3D1B6B', stroke: '#3D1B6B',
+                eye: '#FFD700',
+                footFill: true, headFill: true, sketchy: false,
+            },
+            bvlgariOceanIg4: {
+                name: '深海+暗紫珊瑚头',
+                gradient: ['#0093E9', '#80D0C7'],
+                headGradient: ['#1A0033', '#FF5E62'],  // 暗紫→珊瑚红
+                head: '#1A0033', stroke: '#1A0033',
+                eye: '#FFD700',
+                footFill: true, headFill: true, sketchy: false,
+            },
+            bvlgariOceanIg5: {
+                name: '深海+紫金日落头',
+                gradient: ['#0093E9', '#80D0C7'],
+                headGradient: ['#5851DB', '#FF8C42'],  // Instagram紫→暖橙（跨色相高色差）
+                head: '#5851DB', stroke: '#3D2B9E',
+                eye: '#FFD700',
+                footFill: true, headFill: true, sketchy: false,
+            },
+            // 🔥 手绘透明（黑脚）：透明头 + 黑色描边脚 + 黑眼睛
+            sketchBlack: {
+                name: '手绘透明（黑脚）',
+                gradient: ['#000000', '#000000', '#000000'],
+                head: 'transparent',
+                stroke: '#000000',
+                strokeWidth: 80,
+                headFill: false,
+                sketchy: true,
+                footFill: false,
+                footStrokeWidth: 80,
+                eye: '#000000',
+            },
+        };
+
+        // 当前选中的配色
+        let currentThemeKey = 'original';
+
+        // 当前比例设置
+        let ratios = {
+            headScale: 1.0,
+            eyeScale: 1.0,
+            footScale: 1.0,
+        };
+
+        function drawIcon(size, themeKey, ratioOverrides = {}) {
+            const theme = THEMES[themeKey] || THEMES.original;
+            const r = { ...ratios, ...ratioOverrides };
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // workspace variant 使用的 viewBox 和 scale
+            const scale = 3.8; // 对应 Navbar 中的 scale
+            const svgWidth = 1400 * scale;
+            const svgHeight = 1150 * scale;
+
+            // 计算缩放因子以适应目标尺寸
+            const targetScale = size / Math.max(svgWidth, svgHeight);
+            const finalScale = scale * targetScale;
+
+            // 居中偏移
+            const offsetX = (size - svgWidth * targetScale) / 2;
+            const offsetY = (size - svgHeight * targetScale) / 2;
+
+            ctx.save();
+            ctx.translate(offsetX, offsetY);
+
+            // 绘制脚（大圆形）- 先绘制，在最下层
+            // 🔥 脚部缩放：圆心和半径同步缩放，保持在图标范围内
+            const footCenterX = 350 + 299;
+            const footCenterY = 700 + 295;
+            const footRadius = 295 * r.footScale;
+            const fillFoot = theme.footFill !== false; // 默认 true
+            const footSw = (theme.footStrokeWidth || theme.strokeWidth || 2) * finalScale;
+            // 当 footScale > 1 时，向上偏移避免超出底部
+            const footYOffset = (1 - r.footScale) * 80 * finalScale;
+            ctx.save();
+            ctx.translate(footCenterX * finalScale, footCenterY * finalScale + footYOffset);
+            ctx.beginPath();
+            ctx.arc(0, 0, footRadius * finalScale, 0, Math.PI * 2);
+            if (fillFoot) {
+                // 🔥 渐变范围限定在脚圆内（对角线），让 2 色渐变充分展现
+                const footR = footRadius * finalScale;
+                const footGrad = ctx.createLinearGradient(-footR, -footR, footR, footR);
+                const gradColors = theme.gradient;
+                gradColors.forEach((color, i) => {
+                    footGrad.addColorStop(i / (gradColors.length - 1), color);
+                });
+                ctx.fillStyle = footGrad;
+                ctx.fill();
+            }
+            if (!fillFoot) {
+                // 🔥 脚部透明 → 用脚色描边（默认用 gradient 首色，可用 footStroke 覆盖）
+                ctx.strokeStyle = theme.footStroke || theme.gradient[0];
+                ctx.lineWidth = footSw;
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // 绘制头部（长方形，有圆角）- 使用当前配色
+            const cornerRadius = 30; // 对应 workspace 的默认 cornerRadius
+            const fillHead = theme.headFill !== false; // 默认 true，除非明确设为 false
+            const sketchy = theme.sketchy === true;
+            const sw = (theme.strokeWidth || 2) * finalScale;
+            // 🔥 头部支持渐变：headGradient 数组优先，否则用 head 纯色
+            ctx.strokeStyle = theme.stroke;
+            ctx.lineWidth = sw;
+
+            // 🔥 头部缩放：保持中心不变，向四周缩放
+            const headBaseX = 0.541675;
+            const headBaseY = 50;
+            const headBaseW = 1169;
+            const headBaseH = 699;
+            const headW = headBaseW * r.headScale;
+            const headH = headBaseH * r.headScale;
+            const headX = headBaseX + (headBaseW - headW) / 2;
+            const headY = headBaseY + (headBaseH - headH) / 2;
+            const scaledX = headX * finalScale;
+            const scaledY = headY * finalScale;
+            const scaledW = headW * finalScale;
+            const scaledH = headH * finalScale;
+            const scaledR = cornerRadius * finalScale * r.headScale;
+
+            // 🔥 设置头部填充：渐变限定在头部范围内
+            if (fillHead && theme.headGradient && theme.headGradient.length > 1) {
+                const headGrad = ctx.createLinearGradient(scaledX, scaledY, scaledX + scaledW, scaledY + scaledH);
+                theme.headGradient.forEach((color, i) => {
+                    headGrad.addColorStop(i / (theme.headGradient.length - 1), color);
+                });
+                ctx.fillStyle = headGrad;
+            } else {
+                ctx.fillStyle = fillHead ? theme.head : 'transparent';
+            }
+
+            // 先填充
+            if (fillHead) {
+                roundRect(ctx, scaledX, scaledY, scaledW, scaledH, scaledR);
+                ctx.fill();
+            }
+
+            // 🔥 手绘感描边：单层，角半径微差
+            if (sketchy) {
+                sketchyRoundRect(ctx, scaledX, scaledY, scaledW, scaledH, scaledR, sw, 0);
+                ctx.stroke();
+            } else {
+                roundRect(ctx, scaledX, scaledY, scaledW, scaledH, scaledR);
+                ctx.stroke();
+            }
+
+            // 绘制眼睛（椭圆）- 使用当前配色
+            // 🔥 支持 eyeGradient 数组（如紫金渐变眼睛）
+            if (theme.eyeGradient && theme.eyeGradient.length > 1) {
+                const eyeGrad = ctx.createLinearGradient(0, 0, size, size);
+                theme.eyeGradient.forEach((color, i) => {
+                    eyeGrad.addColorStop(i / (theme.eyeGradient.length - 1), color);
+                });
+                ctx.fillStyle = eyeGrad;
+            } else {
+                ctx.fillStyle = theme.eye;
+            }
+
+            // 🔥 眼睛缩放：中心位置固定，半径缩放
+            const eyeR = 105 * r.eyeScale;
+
+            // 第一个眼睛
+            ctx.beginPath();
+            ctx.ellipse(
+                (300 + 105) * finalScale,
+                (300 + 197.354) * finalScale,
+                eyeR * finalScale,
+                eyeR * finalScale,
+                0, 0, Math.PI * 2
+            );
+            ctx.fill();
+
+            // 第二个眼睛
+            ctx.beginPath();
+            ctx.ellipse(
+                (250 + 698) * finalScale,
+                (300 + 105) * finalScale,
+                eyeR * finalScale,
+                eyeR * finalScale,
+                0, 0, Math.PI * 2
+            );
+            ctx.fill();
+
+            ctx.restore();
+
+            return canvas;
+        }
+
+        // 圆角矩形函数
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        // 🔥 手绘感圆角矩形：最简洁方案
+        // 核心思路：每个角半径略有不同 + 整体微微倾斜 + 边缘轻微正弦波
+        // 不堆叠多层，不随机抖动，看起来干净但有手工的温度感
+        function sketchyRoundRect(ctx, x, y, width, height, radius, jitter, seed) {
+            const wobble = radius * 0.08; // 角半径的微小差异
+            const r = (s) => {
+                const v = Math.sin(s * 0.7 + seed) * wobble;
+                return v;
+            };
+            // 四个角的半径各有微小差异
+            const rTL = radius + r(1);
+            const rTR = radius + r(2);
+            const rBR = radius + r(3);
+            const rBL = radius + r(4);
+
+            ctx.beginPath();
+            ctx.moveTo(x + rTL, y);
+            ctx.lineTo(x + width - rTR, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + rTR);
+            ctx.lineTo(x + width, y + height - rBR);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - rBR, y + height);
+            ctx.lineTo(x + rBL, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - rBL);
+            ctx.lineTo(x, y + rTL);
+            ctx.quadraticCurveTo(x, y, x + rTL, y);
+            ctx.closePath();
+        }
+
+        // ===== 渲染配色方案按钮 =====
+        function renderThemeButtons() {
+            const container = document.getElementById('themeButtons');
+            container.innerHTML = '';
+            Object.entries(THEMES).forEach(([key, theme]) => {
+                const btn = document.createElement('button');
+                btn.className = 'theme-btn' + (key === currentThemeKey ? ' active' : '');
+                // 用配色方案首末色生成色板预览
+                const swatch = document.createElement('span');
+                swatch.className = 'theme-swatch';
+                swatch.style.background = `linear-gradient(135deg, ${theme.gradient[0]}, ${theme.gradient[2]})`;
+                btn.appendChild(swatch);
+                btn.appendChild(document.createTextNode(theme.name));
+                btn.onclick = () => selectTheme(key);
+                container.appendChild(btn);
+            });
+        }
+
+        function selectTheme(key) {
+            currentThemeKey = key;
+            document.getElementById('currentThemeLabel').textContent = THEMES[key].name;
+            renderThemeButtons();
+            renderPreview();
+        }
+
+        // ===== 比例滑块事件 =====
+        function initRatioSliders() {
+            const sliders = [
+                { id: 'headScale', key: 'headScale' },
+                { id: 'eyeScale', key: 'eyeScale' },
+                { id: 'footScale', key: 'footScale' },
+            ];
+            sliders.forEach(({ id, key }) => {
+                const input = document.getElementById(id);
+                const valueSpan = document.getElementById(id + 'Value');
+                input.addEventListener('input', () => {
+                    const val = parseFloat(input.value);
+                    ratios[key] = val;
+                    valueSpan.textContent = val.toFixed(2);
+                    document.getElementById('debug' + key.charAt(0).toUpperCase() + key.slice(1).replace('Scale', '')).textContent = val.toFixed(2);
+                    renderPreview();
+                });
+            });
+        }
+
+        function resetRatios() {
+            ratios = { headScale: 1.0, eyeScale: 1.0, footScale: 1.0 };
+            ['headScale', 'eyeScale', 'footScale'].forEach(id => {
+                const input = document.getElementById(id);
+                input.value = 1;
+                document.getElementById(id + 'Value').textContent = '1.00';
+            });
+            renderPreview();
+        }
+
+        // ===== 渲染预览 =====
+        function renderPreview() {
+            const preview256 = drawIcon(256, currentThemeKey);
+            const ctx256 = document.getElementById('canvas256').getContext('2d');
+            ctx256.clearRect(0, 0, 256, 256);
+            ctx256.drawImage(preview256, 0, 0);
+
+            const preview512 = drawIcon(512, currentThemeKey);
+            const ctx512 = document.getElementById('canvas512').getContext('2d');
+            ctx512.clearRect(0, 0, 512, 512);
+            ctx512.drawImage(preview512, 0, 0);
+
+            // 🔥 小尺寸预览：模拟 Windows 实际渲染（先绘制小 canvas，再 CSS 放大）
+            [16, 32, 48, 64].forEach(s => {
+                const preview = drawIcon(s, currentThemeKey);
+                const ctx = document.getElementById('canvas' + s).getContext('2d');
+                ctx.clearRect(0, 0, s, s);
+                ctx.drawImage(preview, 0, 0);
+            });
+        }
+
+        // 初始化
+        renderThemeButtons();
+        initRatioSliders();
+        renderPreview();
+
+        // 下载 PNG（使用当前选中配色和比例）
+        function downloadPNG(size) {
+            console.log('📥 下载 PNG:', { theme: currentThemeKey, name: THEMES[currentThemeKey].name, size, ratios });
+            const icon = drawIcon(size, currentThemeKey);
+            const ratioSuffix = `h${ratios.headScale.toFixed(2)}-e${ratios.eyeScale.toFixed(2)}-f${ratios.footScale.toFixed(2)}`;
+            const link = document.createElement('a');
+            link.download = `workbees-icon-${currentThemeKey}-${ratioSuffix}-${size}.png`;
+            link.href = icon.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>

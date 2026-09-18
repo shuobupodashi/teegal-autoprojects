@@ -1,0 +1,10 @@
+node_modules
+*.zip
+.git
+.gitignore
+dist
+*.log
+.env
+Dockerfile*
+requirements*.txt
+temp_extract

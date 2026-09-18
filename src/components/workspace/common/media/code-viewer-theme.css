@@ -1,0 +1,213 @@
+/* CodeFileViewer 主题样式 */
+/* ⚠️ 全部规则限定在 .code-file-viewer 容器内：
+   这套 VS Code Dark+ 配色与 CodeEditor 的 code-editor-theme.css 是同优先级全局 CSS，
+   不加作用域时按加载顺序互相覆盖（曾把 CodeEditor 的亮色主题整体盖成淡蓝色） */
+
+/* 编辑器容器 */
+.code-file-viewer .code-editor-textarea,
+.code-file-viewer .code-editor-pre {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* 确保 textarea 和 pre 对齐 */
+.code-file-viewer .code-editor-textarea {
+  color: transparent !important;
+  caret-color: #d4d4d4 !important;
+}
+
+.code-file-viewer .code-editor-pre {
+  color: #d4d4d4 !important;
+}
+
+/* Prism.js 语法高亮主题 - VS Code Dark+ 风格 */
+
+/* 关键字 */
+.code-file-viewer .token.keyword {
+  color: #569cd6;
+}
+
+/* 字符串 */
+.code-file-viewer .token.string {
+  color: #ce9178;
+}
+
+/* 数字 */
+.code-file-viewer .token.number {
+  color: #b5cea8;
+}
+
+/* 注释 */
+.code-file-viewer .token.comment {
+  color: #6a9955;
+}
+
+/* 函数 */
+.code-file-viewer .token.function {
+  color: #dcdcaa;
+}
+
+/* 类名 */
+.code-file-viewer .token.class-name {
+  color: #4ec9b0;
+}
+
+/* 操作符 */
+.code-file-viewer .token.operator {
+  color: #d4d4d4;
+}
+
+/* 标点符号 */
+.code-file-viewer .token.punctuation {
+  color: #d4d4d4;
+}
+
+/* 属性 */
+.code-file-viewer .token.property {
+  color: #9cdcfe;
+}
+
+/* 标签 */
+.code-file-viewer .token.tag {
+  color: #569cd6;
+}
+
+/* 属性名 */
+.code-file-viewer .token.attr-name {
+  color: #9cdcfe;
+}
+
+/* 属性值 */
+.code-file-viewer .token.attr-value {
+  color: #ce9178;
+}
+
+/* 布尔值 */
+.code-file-viewer .token.boolean {
+  color: #569cd6;
+}
+
+/* 正则表达式 */
+.code-file-viewer .token.regex {
+  color: #d16969;
+}
+
+/* 变量 */
+.code-file-viewer .token.variable {
+  color: #9cdcfe;
+}
+
+/* 常量 */
+.code-file-viewer .token.constant {
+  color: #4fc1ff;
+}
+
+/* 内置函数 */
+.code-file-viewer .token.builtin {
+  color: #dcdcaa;
+}
+
+/* 装饰器/注解 */
+.code-file-viewer .token.decorator {
+  color: #dcdcaa;
+}
+
+/* 模板字符串 */
+.code-file-viewer .token.template-string .token.string {
+  color: #ce9178;
+}
+
+/* 插值 */
+.code-file-viewer .token.interpolation {
+  color: #569cd6;
+}
+
+/* 命名空间 */
+.code-file-viewer .token.namespace {
+  color: #4ec9b0;
+}
+
+/* 选择器 */
+.code-file-viewer .token.selector {
+  color: #d7ba7d;
+}
+
+/* 重要标记 */
+.code-file-viewer .token.important {
+  color: #569cd6;
+  font-weight: bold;
+}
+
+/* JSON 特定 */
+.code-file-viewer .token.property.json {
+  color: #9cdcfe;
+}
+
+/* Python 特定 */
+.code-file-viewer .language-python .token.builtin {
+  color: #dcdcaa;
+}
+
+/* TypeScript/JavaScript 特定 */
+.code-file-viewer .language-typescript .token.decorator,
+.code-file-viewer .language-javascript .token.decorator {
+  color: #dcdcaa;
+}
+
+/* Markdown 特定 */
+.code-file-viewer .language-markdown .token.title {
+  color: #569cd6;
+  font-weight: bold;
+}
+
+.code-file-viewer .language-markdown .token.list {
+  color: #d4d4d4;
+}
+
+.code-file-viewer .language-markdown .token.code {
+  color: #ce9178;
+  background: #2d2d2d;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+/* CSS 特定 */
+.code-file-viewer .language-css .token.property {
+  color: #9cdcfe;
+}
+
+.code-file-viewer .language-css .token.selector {
+  color: #d7ba7d;
+}
+
+/* SQL 特定 */
+.code-file-viewer .language-sql .token.keyword {
+  color: #569cd6;
+}
+
+/* 滚动条样式 - 限定在查看器容器内 */
+.code-file-viewer ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.code-file-viewer ::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.code-file-viewer ::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 5px;
+}
+
+.code-file-viewer ::-webkit-scrollbar-thumb:hover {
+  background: #4f4f4f;
+}
+
+/* 选中文字样式 - 限定在查看器内 */
+.code-file-viewer .code-editor-pre ::selection {
+  background: #264f78;
+  color: #d4d4d4;
+}
