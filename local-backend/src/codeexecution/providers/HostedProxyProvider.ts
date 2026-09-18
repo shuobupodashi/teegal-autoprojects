@@ -22,6 +22,8 @@ import {
   GpuAvailabilityInfo,
   HostedStorageInfo,
 } from './GpuCloudProvider';
+import { userModelRegistry } from '../../utils/llm/UserModelRegistry';
+import { isCloudProxyUrl, refreshPackageToken } from '../../utils/llm/CloudTokenRefresher';
 
 export interface HostedProxyConfig {
   /** 云端 GPU 执行 API 根地址（默认 HOME_WEB_URL） */
@@ -48,28 +50,60 @@ export class HostedProxyProvider implements GpuCloudProvider {
     this.baseUrl = (config.baseUrl || process.env.HOME_WEB_URL || 'https://www.workbees.space').replace(/\/$/, '');
     this.secret = config.secret || process.env.GPU_WORKER_SECRET || '';
     if (!this.secret) {
-      console.warn('[GPU-HOSTED] 警告：GPU_WORKER_SECRET 未配置，云端 API 调用将被拒绝');
+      console.warn('[GPU-HOSTED] GPU_WORKER_SECRET 未配置：将使用用户 JWT 认证（用户未登录时云端调用会被拒绝）');
     }
   }
 
   /**
-   * 统一请求云端 /api/gpu/v1/*（Bearer 服务间认证）
+   * 从套餐模型快照取当前用户 JWT（开源版开箱即用通道：注册登录即用 GPU）
+   * 快照由 llmProxy 401 自愈链路持续保鲜（CloudTokenRefresher）
    */
-  private async request<T = any>(method: string, apiPath: string, body?: any, timeoutMs = 15000): Promise<T> {
-    if (!this.secret) {
-      throw new Error('GPU_WORKER_SECRET 未配置（local .env 需与云端一致）');
+  private getUserJwt(): { accessToken: string; refreshToken?: string } | null {
+    const userId = userModelRegistry.getCurrentUserId();
+    if (!userId) return null;
+    for (const model of userModelRegistry.getAllUserModels(userId)) {
+      if (isCloudProxyUrl(model.url) && model.apiKey) {
+        return { accessToken: model.apiKey, refreshToken: model.refreshToken };
+      }
     }
+    return null;
+  }
+
+  /**
+   * 统一请求云端 /api/gpu/v1/*（双轨认证：优先用户 JWT，fallback 服务间密钥）
+   * 401「令牌无效」时用 refreshToken 自愈续期并重试一次（与 llmProxy 同链路）
+   */
+  private async request<T = any>(method: string, apiPath: string, body?: any, timeoutMs = 15000, retried = false): Promise<T> {
+    const userJwt = this.getUserJwt();
+    const useWorkerSecret = !userJwt?.accessToken;
+
+    if (useWorkerSecret && !this.secret) {
+      throw new Error('未登录（GPU 需用户登录令牌）且 GPU_WORKER_SECRET 未配置');
+    }
+
+    const authHeader = `Bearer ${useWorkerSecret ? this.secret : userJwt!.accessToken}`;
+
     const response = await fetch(`${this.baseUrl}/api/gpu/v1${apiPath}`, {
       method,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.secret}`
+        'Authorization': authHeader
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(timeoutMs)
     });
     const data: any = await response.json().catch(() => null);
     if (!response.ok) {
+      // 🔥 用户 JWT 过期 → 401 自愈：refreshToken 换新后重试一次
+      if (response.status === 401 && !useWorkerSecret && !retried && userJwt?.refreshToken) {
+        const tokens = await refreshPackageToken({
+          url: `${this.baseUrl}/api/llm-proxy/call`,
+          refreshToken: userJwt.refreshToken
+        });
+        if (tokens?.accessToken) {
+          return this.request<T>(method, apiPath, body, timeoutMs, true);
+        }
+      }
       const err: any = new Error(data?.error || `HTTP ${response.status}`);
       err.statusCode = response.status;
       err.code = data?.error || `HTTP_${response.status}`;
