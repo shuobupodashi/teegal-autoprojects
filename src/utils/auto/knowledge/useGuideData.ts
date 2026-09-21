@@ -235,30 +235,6 @@ return { success: true, data: { greeting: '你好，' + name } };
     category: "platform"
   },
   {
-    question: "怎么添加自定义搜索源？",
-    answer: `用create_search_provider工具添加自定义搜索源。
-
-参数说明：
-- providerName: 搜索源名称（如 "WorkBees Search"）
-- apiUrl: 搜索接口 URL，支持占位符 {query} 和 {maxResults}
-  例如: https://example.com/search?q={query}&limit={maxResults}
-- apiKeyRequired: 是否需要 API Key（默认 true）
-- requestTemplate: 请求模板，包含 method 和 authType
-  - authType: 'none'（无需认证）、'header'（请求头）、'query'（URL参数）、'body'（请求体）
-
-示例：添加无需 API Key 的公开搜索源
-{
-  "providerName": "MySearch",
-  "apiUrl": "https://example.com/search?q={query}",
-  "apiKeyRequired": false,
-  "requestTemplate": { "method": "GET", "authType": "none" }
-}
-
-添加后可在 ModelSettings 中查看和配置 API Key。`,
-    keywords: ["搜索源", "添加搜索", "create_search_provider", "自定义搜索", "搜索引擎", "搜索配置", "search provider", "apiUrl"],
-    category: "platform"
-  },
-  {
     question: "怎么操作本地文件？",
     answer: `操作电脑上的任意文件用 userpc_shell 执行命令（如 cat/type/echo）。操作项目内的文件用 read_project_file/save_project_file/list_project_files/delete_project_file。`,
     keywords: ["本地文件", "文件操作", "操作电脑", "userpc", "文件管理", "本地操作"],
@@ -343,6 +319,36 @@ return { success: true, data: { greeting: '你好，' + name } };
 
 ⚠️ 框架限制：GPU 镜像仅预装 PyTorch，TensorFlow 未预装。遇到 TF/keras 代码，先用 PyTorch 改写再送 GPU 训练；直接送 TF 代码会因缺少依赖失败。`,
     keywords: ["运行项目", "启动项目", "训练", "run_project_oncloud", "userpc_run_python", "执行项目", "运行模型", "开始训练", "GPU规格", "GPU类型", "list_instance_types", "run_project_onlocal"],
+    category: "platform"
+  },
+  {
+    question: "怎么开一台云端 SSH 实例直接操作？",
+    answer: `用 ssh_instance 工具，三步编排：开机 → userpc_shell 免密 ssh 操作 → 关机结算。
+
+1. 开机：ssh_instance(action='activate', instanceType='S5.MEDIUM4')
+   - instanceType 用 list_instance_types 查到的 CPU 通用计算规格（S5.*）
+   - 开机时自动注入本地 SSH 公钥，就绪后返回实例 IP、凭据名、单价
+   - 若已有同规格活跃实例会直接复用，不会重复开机计费
+
+2. 操作：用 userpc_shell 直接 ssh（公钥免密，无需密码）
+   Windows: userpc_shell(command="ssh -i \"$env:USERPROFILE\\.ssh\\id_ed25519\" -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no ubuntu@<IP> '命令'")
+   macOS/Linux: userpc_shell(command="ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no ubuntu@<IP> '命令'")
+   - ⚠️ 登录用户是 ubuntu（Ubuntu 镜像禁 root SSH）；需要 root 权限用 'sudo 命令' 或 'sudo -i'
+   - ⚠️ 必须带 -o BatchMode=yes：认证失败立即报错退出；不带会在等密码输入时挂死
+   - ⚠️ Windows 须带 -i 指定私钥（-NoProfile 环境下 ssh 可能找不到默认密钥）
+   - 兜底：若公钥探测失败（Permission denied），用 plink 密码通道（activate 输出会给出 authMode=password 和 hostkey 指纹，命令模板原样照抄）：
+     userpc_shell(command="& \"$env:USERPROFILE\\.teegal\\bin\\plink.exe\" -ssh -batch -hostkey \"<activate返回的指纹>\" -pw $env:SSHPASS ubuntu@<IP> \"命令\"", credentialName=<activate 返回的凭据名>)
+   - 实例就是一台干净 Linux 机器：可装依赖、git clone、跑服务、传文件
+   - 多条命令依次执行即可，机器在两次命令之间保持运行状态
+
+3. 关机：ssh_instance(action='close', instanceId='<实例ID>')
+   - 云端按开机→关机时长自动结算扣费，关机即停止计费
+   - ssh_instance(action='list') 随时查看活跃实例
+
+⚠️ 注意：
+- 与 run_project_oncloud（跑完即销毁）不同，SSH 实例从开机到关机持续计费，用完务必 close
+- 超过最长租期或余额不足时云端会自动关机`,
+    keywords: ["ssh", "ssh_instance", "云主机", "开机", "远程机器", "云服务器", "租用实例", "linux实例", "S5", "CPU实例", "远程操作", "远程开发"],
     category: "platform"
   },
   {

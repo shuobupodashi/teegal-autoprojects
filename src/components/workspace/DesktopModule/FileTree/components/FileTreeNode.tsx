@@ -311,13 +311,21 @@ export const FileTreeNode = React.memo(function FileTreeNode({
     <div>
       {/* 节点行 */}
       <div
-        className={`flex items-center gap-1 py-1 px-1 rounded cursor-pointer hover:bg-gray-100 ${
+        className={`relative flex items-center gap-1 py-1 px-1 rounded cursor-pointer hover:bg-gray-100 ${
           isSelected ? 'bg-blue-50 text-blue-600' : ''
         }`}
         style={{ paddingLeft: `${level * 12 + 4}px` }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
+        {/* 🔥 层级参考线：每层一条轻微竖线（与缩进对齐，相邻行同 x 连成引导线） */}
+        {Array.from({ length: level }).map((_, i) => (
+          <span
+            key={i}
+            className="absolute top-0 bottom-0 w-px bg-gray-200"
+            style={{ left: `${i * 12 + 7}px` }}
+          />
+        ))}
         {/* 展开/折叠图标 */}
         {isDir && (
           <span className="w-3.5 h-3.5 flex items-center justify-center">

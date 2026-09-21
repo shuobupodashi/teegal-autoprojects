@@ -250,8 +250,9 @@ export function useFileTree(appId: string) {
         return newSet;
       });
     } else {
-      // 展开 - 先加载子目录
-      await loadSubDirectory(path);
+      // 展开 - 先加载子目录，失败则不展开（避免"展开图标但无内容"的假亮）
+      const children = await loadSubDirectory(path);
+      if (!children) return;
       setExpandedDirs(prev => {
         const newSet = new Set(prev);
         newSet.add(path);
@@ -262,34 +263,33 @@ export function useFileTree(appId: string) {
 
   /**
    * 加载子目录
+   * 🔥 返回加载到的 children（失败返回 null），调用方据此决定是否亮展开态
    */
-  const loadSubDirectory = async (dirPath: string) => {
+  const loadSubDirectory = async (dirPath: string): Promise<FileNode[] | null> => {
     try {
       const electron = (window as any).electron;
 
-      if (!electron?.readDirectory) return;
+      if (!electron?.readDirectory) return null;
 
       const result = await electron.readDirectory(dirPath);
-      if (!result.success || !result.files) return;
+      if (!result.success || !result.files) return null;
+
+      const children = sortFileNodes(result.files.map((f: any) => ({
+        name: f.name,
+        path: f.path,
+        relativePath: f.relativePath || f.name,
+        type: f.type,
+        ext: f.ext,
+        size: f.size,
+        children: f.type === 'directory' ? [] : undefined,
+      })));
 
       // 找到对应的节点并添加 children
       setState(prev => {
         const updateNodeChildren = (nodes: FileNode[]): FileNode[] => {
           return nodes.map(node => {
             if (node.path === dirPath) {
-              // 找到目标节点，添加 children
-              return {
-                ...node,
-                children: result.files.map((f: any) => ({
-                  name: f.name,
-                  path: f.path,
-                  relativePath: f.relativePath || f.name,
-                  type: f.type,
-                  ext: f.ext,
-                  size: f.size,
-                  children: f.type === 'directory' ? [] : undefined,
-                })),
-              };
+              return { ...node, children };
             }
             if (node.children) {
               return {
@@ -307,8 +307,10 @@ export function useFileTree(appId: string) {
         };
       });
 
+      return children;
     } catch (error) {
       console.error('[FileTree] 加载子目录失败:', dirPath, error);
+      return null;
     }
   };
 
@@ -334,13 +336,25 @@ export function useFileTree(appId: string) {
     // 🔥 静默刷新：不设 loading: true，避免 ChangeList 被卸载丢失 diffStats
     await loadFileTree(true);
 
-    // 🔥 重新加载已展开目录的子目录
+    // 🔥 重新加载已展开目录的子目录；读取失败的目录（被删/瞬时不可用）从展开态移除，
+    // 避免"展开图标但无内容"的残留假亮
+    const failedDirs: string[] = [];
     for (const dirPath of currentExpandedDirs) {
-      await loadSubDirectory(dirPath);
+      const ok = await loadSubDirectory(dirPath);
+      if (!ok) failedDirs.push(dirPath);
+    }
+    if (failedDirs.length > 0) {
+      setExpandedDirs(prev => {
+        const newSet = new Set(prev);
+        failedDirs.forEach(p => newSet.delete(p));
+        return newSet;
+      });
     }
 
-    // 🔥 恢复展开状态
-    setExpandedDirs(currentExpandedDirs);
+    // 🔥 恢复展开状态（剔除读取失败的目录）
+    const restored = new Set(currentExpandedDirs);
+    failedDirs.forEach(p => restored.delete(p));
+    setExpandedDirs(restored);
   }, [loadFileTree, appId]);
 
   /**
@@ -369,21 +383,25 @@ export function useFileTree(appId: string) {
     autoExpandedRef.current = false;
   }, [appId]);
   useEffect(() => {
-    if (state.loading || state.files.length === 0) return;
-    if (autoExpandedRef.current) return; // 只自动展开一次
+    const tryAutoExpand = async () => {
+      if (state.loading || state.files.length === 0) return;
+      if (autoExpandedRef.current) return; // 只自动展开一次
 
-    if (state.files.length === 1 && state.files[0].type === 'directory') {
-      autoExpandedRef.current = true;
-      const dirPath = state.files[0].path;
-      if (!expandedDirs.has(dirPath)) {
-        loadSubDirectory(dirPath);
-        setExpandedDirs(prev => {
-          const newSet = new Set(prev);
-          newSet.add(dirPath);
-          return newSet;
-        });
+      if (state.files.length === 1 && state.files[0].type === 'directory') {
+        const dirPath = state.files[0].path;
+        // 🔥 读取成功才亮展开态并锁定（失败不锁定，下次 effect 自动重试）
+        const children = await loadSubDirectory(dirPath);
+        if (children) {
+          autoExpandedRef.current = true;
+          setExpandedDirs(prev => {
+            const newSet = new Set(prev);
+            newSet.add(dirPath);
+            return newSet;
+          });
+        }
       }
-    }
+    };
+    tryAutoExpand();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.loading, state.files]);
 

@@ -78,13 +78,20 @@ export function isCodeFile(ext: string): boolean {
 
 /**
  * 排序文件节点（目录优先，然后按名称）
+ * 🔥 递归排序：子目录的 children 同样目录优先（展开后不再乱序）
  */
 export function sortFileNodes(nodes: FileNode[]): FileNode[] {
-  return nodes.sort((a, b) => {
+  const sorted = [...nodes].sort((a, b) => {
     if (a.type === 'directory' && b.type !== 'directory') return -1;
     if (a.type !== 'directory' && b.type === 'directory') return 1;
     return a.name.localeCompare(b.name);
   });
+  for (const node of sorted) {
+    if (node.children && node.children.length > 0) {
+      node.children = sortFileNodes(node.children);
+    }
+  }
+  return sorted;
 }
 
 /**

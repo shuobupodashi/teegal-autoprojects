@@ -14,6 +14,13 @@ import fs from 'fs';
 export const BASE_PROJECT_ID = 'base-extensiontool';
 
 /**
+ * 🔥 BootCode 基础项目固定 ID：存放 Teegal 开源源码（fork 自 teegal-autoprojects）
+ * 与扩展工具项目（base-extensiontool）同为 system_base，按 ID 前缀互相区分
+ */
+export const BOOT_PROJECT_ID = 'base-bootcode';
+const BOOT_PROJECT_PREFIX = BOOT_PROJECT_ID + '%'; // SQL LIKE 用
+
+/**
  * 🔥 判断是否基础项目 ID（多账号兼容）
  * 首个账号沿用固定 ID base-extensiontool；后续账号为 base-extensiontool-{userId}
  * （本地库是同一 SQLite 文件，多平台账号共用，基础项目必须按 user_id 归属隔离）
@@ -299,10 +306,10 @@ export class DesktopAppDAO {
     const db = localDatabase.getDb();
     const stmt = db.prepare(`
       SELECT * FROM desktop_apps
-      WHERE user_id = ? AND app_type = 'system_base' AND id != ?
+      WHERE user_id = ? AND app_type = 'system_base' AND id != ? AND id NOT LIKE ?
       LIMIT 1
     `);
-    const row = stmt.get(userId, BASE_PROJECT_ID) as any;
+    const row = stmt.get(userId, BASE_PROJECT_ID, BOOT_PROJECT_PREFIX) as any;
     if (!row) return null;
     return this.parseAppRow(row);
   }
@@ -366,9 +373,9 @@ export class DesktopAppDAO {
     const db = localDatabase.getDb();
     const mine = db.prepare(`
       SELECT * FROM desktop_apps
-      WHERE user_id = ? AND (app_type = 'system_base' OR id = ?)
+      WHERE user_id = ? AND (app_type = 'system_base' OR id = ?) AND id NOT LIKE ?
       LIMIT 1
-    `).get(userId, BASE_PROJECT_ID) as any;
+    `).get(userId, BASE_PROJECT_ID, BOOT_PROJECT_PREFIX) as any;
     if (mine) return this.parseAppRow(mine);
     return this.getLegacyBaseProject(userId);
   }
@@ -378,11 +385,12 @@ export class DesktopAppDAO {
 
     // 1. 🔥 按归属查当前用户自己的基础项目
     //    （兼容老数据：更早的 base 项目 app_type 可能未标 system_base，用 id=固定ID 兜住）
+    //    🔥 排除 BootCode 项目（同为 system_base，按 ID 前缀互斥）
     const mine = db.prepare(`
       SELECT * FROM desktop_apps
-      WHERE user_id = ? AND (app_type = 'system_base' OR id = ?)
+      WHERE user_id = ? AND (app_type = 'system_base' OR id = ?) AND id NOT LIKE ?
       LIMIT 1
-    `).get(userId, BASE_PROJECT_ID) as any;
+    `).get(userId, BASE_PROJECT_ID, BOOT_PROJECT_PREFIX) as any;
     if (mine) {
       const app = this.parseAppRow(mine);
       if (app.name === '基础项目') {
@@ -417,6 +425,45 @@ export class DesktopAppDAO {
       '扩展工具',
       '系统扩展工具项目，存放 LLM 动态注册的工具。不可删除，可修改工具文件。',
       '# 扩展工具\n\n此项目存放动态注册的工具。在 tools/registry.json 中登记工具，对应 .js 文件为工具执行体。'
+    );
+  }
+
+  /**
+   * 🔥 查找用户自己的 BootCode 项目（base-bootcode / base-bootcode-{userId}），无则返回 null
+   * 按 ID 前缀区分（与扩展工具项目同为 system_base，app_type 无法区分两者）
+   */
+  findUserBootProject(userId: string): DesktopApp | null {
+    const db = localDatabase.getDb();
+    const mine = db.prepare(`
+      SELECT * FROM desktop_apps
+      WHERE user_id = ? AND (id = ? OR id LIKE ?)
+      LIMIT 1
+    `).get(userId, BOOT_PROJECT_ID, BOOT_PROJECT_PREFIX) as any;
+    if (mine) return this.parseAppRow(mine);
+    return null;
+  }
+
+  /**
+   * 🔥 确保 BootCode 项目存在（不存在则创建，含多账号后缀规则）
+   * 多账号规则与扩展工具项目一致：首账号沿用固定 ID，后登录账号为 base-bootcode-{userId}
+   * 文件初始化（拉取开源仓库）由前端 BootProjectLoader 负责
+   */
+  ensureBootProject(userId: string): DesktopApp {
+    // 1. 按归属查当前用户自己的 BootCode 项目
+    const mine = this.findUserBootProject(userId);
+    if (mine) return mine;
+
+    // 2. 固定 ID 未被其他账号占用则沿用，被占用则带 userId 后缀
+    const fixedTaken = !!this.getById(BOOT_PROJECT_ID);
+    const projectId = fixedTaken ? `${BOOT_PROJECT_ID}-${userId}` : BOOT_PROJECT_ID;
+
+    // 3. 全新创建
+    return this.createSystemProject(
+      projectId,
+      userId,
+      'BootCode 源码',
+      'Teegal 开源源码项目（teegal-autoprojects）：本系统的完整源代码，系统首次初始化时自动从开源仓库拉取。不可删除，可自由阅读和修改——这就是你可以自己写自己的 Agent 的入口。',
+      '# BootCode\n\n此项目存放 Teegal 开源源码。首次初始化时系统会自动从开源仓库拉取完整源码；若目录为空，说明拉取未完成，重启应用会自动重试。'
     );
   }
 }

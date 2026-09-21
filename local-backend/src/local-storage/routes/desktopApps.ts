@@ -215,4 +215,23 @@ router.post('/base-project/ensure', (req, res) => {
   }
 });
 
+/**
+ * POST /api/local/desktop-apps/boot-project/ensure
+ * 🔥 确保 BootCode 项目（开源源码，base-bootcode）存在，返回项目记录
+ */
+router.post('/boot-project/ensure', (req, res) => {
+  try {
+    const { user_id } = req.body;
+    if (!user_id) {
+      return res.status(400).json({ error: 'user_id is required' });
+    }
+    const existed = !!desktopAppDAO.findUserBootProject(user_id);
+    const app = desktopAppDAO.ensureBootProject(user_id);
+    res.json({ data: app, created: !existed });
+  } catch (error: any) {
+    console.error('❌ 确保 BootCode 项目失败:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

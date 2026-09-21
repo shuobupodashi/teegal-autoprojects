@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit2, Key, Eye, EyeOff, Loader2, ShieldCheck, Save, X, Settings, Import } from 'lucide-react';
+import { Plus, Trash2, Edit2, Key, Eye, EyeOff, Loader2, ShieldCheck, Save, X, Settings, Import, Copy, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { ModelManager } from '@/utils/llm/ModelManager';
 import { Switch } from '@/components/ui/switch';
@@ -90,6 +90,7 @@ export const CredentialManager: React.FC<CredentialManagerProps> = ({
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const [showForm, setShowForm] = useState(false);
   const [showValues, setShowValues] = useState<Record<string, boolean>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   // 🔥 从模型导入
@@ -386,7 +387,8 @@ export const CredentialManager: React.FC<CredentialManagerProps> = ({
             <ShieldCheck className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
           )}
           <span className="text-sm font-medium font-mono truncate">
-            {cred.env_var}
+            {/* 🔥 优先显示凭据名（如 ssh_ins-xxx，区分多台机子）；param 型无独立名，显示 env_var */}
+            {isParam ? cred.env_var : (cred.name || cred.env_var)}
           </span>
         </div>
         {isParam ? (
@@ -395,23 +397,44 @@ export const CredentialManager: React.FC<CredentialManagerProps> = ({
             值: {cred.value}
           </p>
         ) : (
-          // 🔥 env 型用眼睛切换显示
-          <button
-            onClick={() => toggleShowValue(cred.id)}
-            className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 mt-1 pl-5"
-          >
-            {showValues[cred.id] ? (
-              <>
-                <EyeOff className="h-3 w-3" />
-                <span className="font-mono">{cred.value.slice(0, 20)}{cred.value.length > 20 ? '...' : ''}</span>
-              </>
-            ) : (
-              <>
-                <Eye className="h-3 w-3" />
-                <span>显示值</span>
-              </>
+          <>
+            {/* 🔥 env 型副行显示注入变量名，LLM 引用凭据名时以 name 为准 */}
+            {cred.name && cred.name !== cred.env_var && (
+              <p className="text-xs text-muted-foreground mt-0.5 pl-5 truncate">注入变量: {cred.env_var}</p>
             )}
-          </button>
+            <button
+              onClick={() => toggleShowValue(cred.id)}
+              className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 mt-1 pl-5"
+            >
+              {showValues[cred.id] ? (
+                <>
+                  <EyeOff className="h-3 w-3" />
+                  <span className="font-mono">{cred.value.slice(0, 20)}{cred.value.length > 20 ? '...' : ''}</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="h-3 w-3" />
+                  <span>显示值</span>
+                </>
+              )}
+            </button>
+            {/* 🔥 值可见时的复制按钮（成功后显示对勾反馈） */}
+            {showValues[cred.id] && (
+              <button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(cred.value);
+                    setCopiedId(cred.id);
+                    setTimeout(() => setCopiedId(null), 1500);
+                  } catch { /* 剪贴板不可用时静默 */ }
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center ml-1 mt-1 p-0.5"
+                title="复制值"
+              >
+                {copiedId === cred.id ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+              </button>
+            )}
+          </>
         )}
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">

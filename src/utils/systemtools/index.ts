@@ -15,3 +15,4 @@ export { handleGetLocalApp, executeGetLocalAppTool } from './getLocalApp.js';
 export type { GetAccountInfoResult, AccountInfo } from './getUserProfile.js';
 export { handleGetAccountInfo, executeGetAccountInfoTool } from './getUserProfile.js';
 export { executeListCredentialsTool } from './listCredentials.js';
+export { executeSshInstanceTool } from './sshInstance.js';

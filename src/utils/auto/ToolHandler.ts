@@ -8,6 +8,7 @@ import { executeGetAppCodeTool } from '@/utils/apptool/GetAppCodeTool';
 import { executeRunGpuTrainTool } from '@/utils/apptool/RunGpuTrainTool';
 import { executeCheckCreditsTool } from '@/utils/apptool/CheckCreditsTool';
 import { executeTeeGalUseGuideTool } from '@/utils/apptool/TeeGalUseGuideTool';
+import { executeSshInstanceTool } from '@/utils/systemtools/sshInstance';
 import {
   executeListProjectFilesTool,
   executeReadProjectFileTool,
@@ -29,7 +30,6 @@ import {
 import { executeListCloudFilesTool } from '@/utils/apptool/DSETools';
 import { executeUploadFileToOsSTool } from '@/utils/apptool/UploadFileToOsSTool';
 import { executeCallMemoryTool } from '@/utils/auto/context/CallMemoryTool';
-import { executeCreateSearchProviderTool } from '@/utils/webshell/SearchProviderConfigTool';
 import { extensionToolRegistry, ExtensionToolContext, ExtensionToolResult } from '@/utils/auto/ExtensionToolRegistry';
 import { loadBaseProjectTools, BASE_PROJECT_ID } from '@/utils/auto/BaseProjectToolLoader';
 import { ApiClient } from '@/utils/ApiClient';
@@ -257,6 +257,9 @@ export class ToolHandler {
 
     // 🔥 userpc_shell 传入 userId，支持 credentialName 参数注入环境变量
     this.registerTool("userpc_shell", (step, sessionId, onProgress) => executeExecuteCommandTool(step, sessionId, onProgress, { userId: this.userId }));
+
+    // 🔥 SSH 实例租赁：开机云端 CPU 实例（公钥免密注入）→ userpc_shell ssh 操作 → close 关机结算
+    this.registerTool("ssh_instance", (step, sessionId, onProgress) => executeSshInstanceTool(step, sessionId, onProgress, { userId: this.userId }));
     this.registerTool("userpc_run_python", (step, sessionId, onProgress) => executeRunPythonTool(step, sessionId, onProgress));
     this.registerTool("get_account_info", (step, sessionId) => executeGetAccountInfoTool(step, sessionId, { userId: this.userId, conversationId: this.conversationId }));
     // 🔥 云端运行项目（GPU 训练 + CPU 普通计算，instanceType 显式区分）
@@ -265,8 +268,7 @@ export class ToolHandler {
     // 🔥 check_user_credits 已合并到 get_account_info，保留注册向后兼容
     this.registerTool("check_user_credits", (step, sessionId) => executeCheckCreditsTool(step, sessionId, { userId: this.userId, conversationId: this.conversationId }));
     this.registerTool("use_guide", (step, sessionId) => executeTeeGalUseGuideTool(step, sessionId, { userId: this.userId, conversationId: this.conversationId }));
-    this.registerTool("create_search_provider", (step, sessionId) => executeCreateSearchProviderTool(step, sessionId, { userId: this.userId, conversationId: this.conversationId }));
-    
+
     // 🔥 向后兼容：teegal_ 前缀版本仍然可用
     this.registerTool("teegal_list_train_projects", (step, sessionId) => executeGetLocalAppTool(step, sessionId, { userId: this.userId, conversationId: this.conversationId }));
 

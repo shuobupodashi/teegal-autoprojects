@@ -10,12 +10,14 @@ import { claimPendingExecutionResult } from '@/utils/apptool/LocalExecutor';
 interface DesktopAppCardProps {
   app: DesktopApp;
   index?: number;
+  /** 🔥 该项目是否有活跃常驻实例（序号圈变绿色信号，不加新标签保持简洁） */
+  hasResident?: boolean;
   onAppUpdated: (appId: string) => void;
   onAppDeleted: (id: string) => void;
   conversationId?: string | null;
 }
 
-export const DesktopAppCard = memo(({ app, index, onAppUpdated, onAppDeleted, conversationId }: DesktopAppCardProps) => {
+export const DesktopAppCard = memo(({ app, index, hasResident, onAppUpdated, onAppDeleted, conversationId }: DesktopAppCardProps) => {
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [showEditIcon, setShowEditIcon] = useState(false);
   // 🔥 ref 跟踪 isViewerOpen，供 useEffect 回调里读取最新值（避免闭包过期）
@@ -234,7 +236,12 @@ export const DesktopAppCard = memo(({ app, index, onAppUpdated, onAppDeleted, co
             </div>
           )}
           {index !== undefined && (
-            <div className="absolute top-0 left-0 z-10 w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-xs font-medium text-gray-600">
+            <div
+              className={`absolute top-0 left-0 z-10 w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
+                hasResident ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-400' : 'bg-gray-200 text-gray-600'
+              }`}
+              title={hasResident ? '该项目有常驻实例运行中' : undefined}
+            >
               {index}
             </div>
           )}
@@ -294,7 +301,8 @@ export const DesktopAppCard = memo(({ app, index, onAppUpdated, onAppDeleted, co
     prevProps.app.id === nextProps.app.id &&
     getTimestamp(prevProps.app.updatedAt) === getTimestamp(nextProps.app.updatedAt) &&
     prevProps.app.name === nextProps.app.name &&
-    prevProps.index === nextProps.index
+    prevProps.index === nextProps.index &&
+    prevProps.hasResident === nextProps.hasResident
   );
 });
 

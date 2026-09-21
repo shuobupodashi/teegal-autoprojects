@@ -133,6 +133,34 @@ contextBridge.exposeInMainWorld('electron', {
   },
 
   /**
+   * 🔥 Headless 分身：接收主进程转发的 agent query（POST /api/agent/query → IPC），
+   * 渲染进程执行编排后必须调用 agentQueryResult 回包（reqId 配对）
+   */
+  onAgentQuery: (callback: (payload: { reqId: string; userQuery: string }) => void) => {
+    const listener = (_: any, payload: { reqId: string; userQuery: string }) => callback(payload);
+    ipcRenderer.on('agent:query', listener);
+    return () => ipcRenderer.removeListener('agent:query', listener);
+  },
+
+  /**
+   * 🔥 Headless 分身：渲染进程受理回包（reqId 配对主进程的等待 promise）
+   */
+  agentQueryResult: (result: { reqId: string; ok: boolean; error?: string }) => {
+    ipcRenderer.send('agent:query:result', result);
+  },
+
+  /**
+   * 🔥 Headless 分身模式标记（渲染进程据此决定是否订阅 agent query）
+   */
+  isHeadless: (() => {
+    try {
+      return (process.argv || []).includes('--headless') || process.env?.TEEGAL_HEADLESS === '1';
+    } catch {
+      return false;
+    }
+  })(),
+
+  /**
    * 🔥 本地存储 API（SQLite）
    */
   localStorage: {
@@ -447,6 +475,10 @@ declare global {
       // 🔥 基础项目工具目录监视（fs.watch 热重载，appId 多账号隔离）
       watchBaseTools: (appId?: string) => Promise<{ success: boolean; reused?: boolean; error?: string }>;
       onBaseToolsChanged: (callback: () => void) => () => void;
+      // 🔥 Headless 分身：agent query 桥（HTTP 入口 → 渲染进程编排）
+      onAgentQuery: (callback: (payload: { reqId: string; userQuery: string }) => void) => () => void;
+      agentQueryResult: (result: { reqId: string; ok: boolean; error?: string }) => void;
+      isHeadless: boolean;
       // 🔥 本地存储方法
       localStorage: {
         createConversation: (data: any) => Promise<any>;

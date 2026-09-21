@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Loader2, OctagonX } from 'lucide-react';
 import { getBackendUrl } from '@/config/env';
 
 interface GPUOption {
@@ -14,12 +14,28 @@ interface GPUOption {
   available: boolean;
 }
 
+/** 训练中的任务（跑在云端机子上，可在此停止） */
+export interface RunningTrainTask {
+  id: string;
+  status: string;
+  instance_type: string;
+  duration: number;
+  cost: number;
+  created_at: number;
+}
+
 interface GPUSelectorDialogProps {
   isOpen: boolean;
   userBalance: number;
   onSelect: (gpuOption: GPUOption) => void;
   onCancel: () => void;
   onRecharge?: () => void;
+  /** 🔥 训练中的任务列表（上半区展示，可停止） */
+  runningTasks?: RunningTrainTask[];
+  /** 🔥 停止指定训练任务（弹确认填原因） */
+  onStopTask?: (taskId: string) => void;
+  /** 🔥 正在停止中的任务 ID（按钮转圈） */
+  stoppingTaskId?: string | null;
 }
 
 const GPUSelectorDialog: React.FC<GPUSelectorDialogProps> = ({
@@ -27,7 +43,10 @@ const GPUSelectorDialog: React.FC<GPUSelectorDialogProps> = ({
   userBalance,
   onSelect,
   onCancel,
-  onRecharge
+  onRecharge,
+  runningTasks = [],
+  onStopTask,
+  stoppingTaskId
 }) => {
   const [selectedGpu, setSelectedGpu] = useState<GPUOption | null>(null);
   const [gpuOptions, setGpuOptions] = useState<GPUOption[]>([]);
@@ -151,6 +170,43 @@ const GPUSelectorDialog: React.FC<GPUSelectorDialogProps> = ({
         </div>
 
         <div className="p-6 max-h-[400px] overflow-y-auto">
+          {/* 🔥 训练中的任务（可多台并存，点击停止——与常驻面板同款体验） */}
+          {runningTasks.length > 0 && (
+            <div className="mb-4">
+              <div className="text-xs font-medium text-gray-500 mb-2">训练中的任务（按实际时长计费中）</div>
+              <div className="grid gap-2">
+                {runningTasks.map((task) => (
+                  <div key={task.id} className="p-3 rounded-lg border border-blue-200 bg-blue-50/50 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      {task.status === 'running' ? (
+                        <span className="h-2 w-2 rounded-full bg-green-500" />
+                      ) : (
+                        <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" />
+                      )}
+                      <div>
+                        <div className="text-sm font-medium">
+                          {task.instance_type || 'GPU 任务'}
+                          <span className="ml-2 text-xs text-gray-500">#{task.id.slice(0, 8)}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 inline-flex items-center gap-0.5">
+                          <Sparkles className="h-3 w-3" />已计费 {Number(task.cost || 0).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => onStopTask?.(task.id)}
+                      disabled={stoppingTaskId === task.id}
+                      className="px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded-md inline-flex items-center gap-1 transition-colors disabled:opacity-50"
+                    >
+                      {stoppingTaskId === task.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <OctagonX className="w-3 h-3" />}
+                      停止
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {gpuOptions.length === 0 && !loading && (
             <div className="text-center text-gray-500 py-8">
               暂无可用的计算实例规格

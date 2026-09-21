@@ -386,6 +386,37 @@ export class LocalDatabase {
       );
     `);
 
+    // 🔥 创建 ssh_resources 表（用户侧 SSH 资源中心：cloud 租赁 / workstation 预留）
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS ssh_resources (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        app_id TEXT DEFAULT '',
+        name TEXT DEFAULT '',
+        source TEXT NOT NULL DEFAULT 'cloud', -- cloud | workstation
+        provider TEXT DEFAULT 'tencent',
+        instance_type TEXT DEFAULT '',
+        region TEXT DEFAULT '',
+        host TEXT DEFAULT '',
+        port INTEGER DEFAULT 22,
+        username TEXT DEFAULT 'root',
+        credential_name TEXT DEFAULT '',
+        cloud_rental_id TEXT DEFAULT '',
+        cloud_instance_id TEXT DEFAULT '',
+        price_per_hour REAL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'booting', -- booting, running, closed, error
+        remark TEXT DEFAULT '',
+        created_at INTEGER NOT NULL,
+        closed_at INTEGER,
+        updated_at INTEGER NOT NULL
+      );
+    `);
+
+    // 🔥 已有库补 app_id 列（项目归属，区分"项目专属机"）
+    try {
+      this.db.exec(`ALTER TABLE ssh_resources ADD COLUMN app_id TEXT DEFAULT '';`);
+    } catch { /* 列已存在 */ }
+
     // 创建 execution_logs 表（本地代码执行记录）
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS execution_logs (

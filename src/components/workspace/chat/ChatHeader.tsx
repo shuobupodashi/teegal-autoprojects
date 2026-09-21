@@ -113,6 +113,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
           setTimeout(() => loadBaseProjectTools(String(uid)).catch(() => {}), 4000);
         }
       }).catch(() => {});
+      // 🔥 BootCode 项目（开源源码）初始化：与扩展工具同点触发（不依赖 ToolHandler 构造，
+      //    那要到首次发消息才发生），内部幂等 + 失败下次启动自动重试
+      import('@/utils/auto/BootProjectLoader').then((m) => m.loadBootProject(String(uid))).catch(() => {});
     }, 2500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps

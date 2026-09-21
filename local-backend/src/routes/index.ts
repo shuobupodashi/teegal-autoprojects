@@ -20,6 +20,7 @@ import llmModelsRouter from './llm-models';
 import llmProxyRouter from './llmProxy';
 
 import codeexecutionRouter, { recoverOrphanTasks } from './codeexecution';
+import rentalRouter from './rental';
 import { AppScheduler } from '../codeexecution/AppScheduler';
 
 /**
@@ -58,6 +59,9 @@ export function registerRoutes(app: Express, config: RouteConfig): void {
   
   // 代码执行路由
   app.use('/api/code-execution', codeexecutionRouter);
+
+  // 🔥 SSH 租赁路由（云端账本转发 + 本地资源中心）
+  app.use('/api/rental', rentalRouter);
 
   // 🔥 数据库已就绪，恢复悬挂的 GPU 任务
   recoverOrphanTasks().catch(err => {

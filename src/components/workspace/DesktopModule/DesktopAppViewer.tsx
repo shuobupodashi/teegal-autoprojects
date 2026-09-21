@@ -18,13 +18,15 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Play, Save, Loader2, Zap, Server, LayoutPanelLeft, PanelLeftClose, PanelLeftOpen, Settings, X, FileIcon, ExternalLink, Maximize2, Minimize2, OctagonX, Terminal, CloudLightning, CalendarSync } from 'lucide-react';
+import { Play, Save, Loader2, Zap, Server, Cloud, LayoutPanelLeft, PanelLeftClose, PanelLeftOpen, Settings, X, FileIcon, ExternalLink, Maximize2, Minimize2, OctagonX, Terminal, CloudLightning, CalendarSync } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDesktopApp } from '@/hooks/workspace/desktopapp/useDesktopApp';
 import { trainingTaskStorage } from '@/services/storage';
 import { getBackendUrl } from '@/config/api';
 import { appDatabaseService } from '@/utils/apptool/AppDatabaseService';
 import GPUSelectorDialog from './GPUSelectorDialog';
+import SSHSelectorDialog, { SshSpecOption } from './SSHSelectorDialog';
+import { sshOpenInstance } from '@/utils/systemtools/sshInstance';
 import { ECSWebSocketManager } from '@/utils/workspace/ECSWebSocketManager';
 import HistoryTaskList, { HistoryTaskListRef, TrainingTask } from './HistoryTaskList';
 import ExecutionLogList, { ExecutionLogListRef, ExecutionLog } from './ExecutionLogList';
@@ -137,9 +139,54 @@ export const DesktopAppViewer: React.FC<DesktopAppViewerProps> = ({
   const [showGpuConfirmation, setShowGpuConfirmation] = useState(false);
   const [gpuConfirmationCallback, setGpuConfirmationCallback] = useState<((gpuOption: any) => void) | null>(null);
 
+  // 🔥 常驻实例租赁（长期常驻，区别于 Train/Run 短任务）：选择弹窗 + 开机中状态
+  // 按钮恒定样式，不随实例状态翻转——运行中实例的查看/关机统一在 SSHSelectorDialog 里管理（可多台并存）
+  const [showSshSelector, setShowSshSelector] = useState(false);
+  const [isSshBooting, setIsSshBooting] = useState(false);
+  // 🔥 常驻指示灯：本项目归属的活跃实例存在时按钮文字后加绿点（不改变点击行为）
+  // 只认 app_id = 当前项目的机子——其他项目/未关联的机子不亮，避免误导用户以为本项目有专属机子
+  const [hasRunningResident, setHasRunningResident] = useState(false);
+
+  const refreshResidentIndicator = useCallback(async () => {
+    if (!userId || !appId) return;
+    try {
+      const resp = await fetch(`${getBackendUrl()}/api/rental/resources?userId=${encodeURIComponent(userId)}&active=1`);
+      const data = await resp.json().catch(() => null);
+      const mine = (data?.resources || []).filter((r: any) => r.app_id === appId);
+      setHasRunningResident(mine.length > 0);
+    } catch {
+      // 本地后端不可达，保持现状
+    }
+  }, [userId, appId]);
+
+  // 挂载/切换用户时同步指示灯
+  useEffect(() => {
+    refreshResidentIndicator();
+  }, [refreshResidentIndicator]);
+
   // 🔥 Kill 训练弹窗状态
   const [showKillDialog, setShowKillDialog] = useState(false);
   const [killReason, setKillReason] = useState('');
+  // 🔥 待停止的任务 ID（从 GPU 管理面板点停止时指定，与 runningTaskId 单任务状态解耦）
+  const [killTargetTaskId, setKillTargetTaskId] = useState<string | null>(null);
+  // 🔥 训练中的任务列表（GPU 管理面板上半区展示，可多台并存）
+  const [runningTrainTasks, setRunningTrainTasks] = useState<any[]>([]);
+
+  // 查询当前项目的训练中任务（running/pending）
+  const fetchRunningTrainTasks = useCallback(async () => {
+    if (!appId) return;
+    try {
+      const tasks = await trainingTaskStorage.getByAppId(appId);
+      setRunningTrainTasks(tasks.filter((t: any) => t.status === 'running' || t.status === 'pending'));
+    } catch {
+      // 查询失败保持现状
+    }
+  }, [appId]);
+
+  // 挂载/切换项目时同步训练中任务
+  useEffect(() => {
+    fetchRunningTrainTasks();
+  }, [fetchRunningTrainTasks]);
   const [isKilling, setIsKilling] = useState(false);
   // 🔥 当前正在运行的 GPU 任务（来自 latestTask 或 WebSocket）
   const [runningTaskId, setRunningTaskId] = useState<string | null>(null);
@@ -358,19 +405,22 @@ export const DesktopAppViewer: React.FC<DesktopAppViewerProps> = ({
     toast({ title: t('workspace.desktopModule.desktopAppViewer.serviceStopped') });
   };
 
-  // 🔥 Kill GPU 训练
-  const handleKillTrain = () => {
-    if (!isGpuTaskRunning && !isRunning) return;
+  // 🔥 Kill GPU 训练（可指定 taskId——管理面板多任务场景；不传用当前 runningTaskId）
+  const handleKillTrain = (taskId?: string) => {
+    const target = taskId || runningTaskId;
+    if (!target && !isGpuTaskRunning && !isRunning) return;
+    setKillTargetTaskId(target || null);
     setKillReason('');
     setShowKillDialog(true);
   };
 
   const handleKillConfirm = async () => {
-    if (!runningTaskId) return;
+    const targetTaskId = killTargetTaskId || runningTaskId;
+    if (!targetTaskId) return;
     setIsKilling(true);
     try {
       // 🔥 传入用户填写的原因
-      const result = await appExecutionService.stopGpuTask(runningTaskId, appId, killReason.trim() || '用户手动停止');
+      const result = await appExecutionService.stopGpuTask(targetTaskId, appId, killReason.trim() || '用户手动停止');
       if (result.success) {
         setIsRunning(false);
         setIsGpuTaskRunning(false);
@@ -378,6 +428,7 @@ export const DesktopAppViewer: React.FC<DesktopAppViewerProps> = ({
         setRunningTaskId(null);
         setShowKillDialog(false);
         historyListRef.current?.refresh();
+        fetchRunningTrainTasks();
         toast({ title: t('workspace.desktopModule.desktopAppViewer.trainingStopped'), description: t('workspace.desktopModule.desktopAppViewer.trainingStoppedDesc') });
         // 🔥 不再直接通知 agent，通过后端 waitForCompletion 返回 reason 的路径传递
         // stopGpuTask 已经将 reason 传给后端 → waitForCompletion 返回 → 工具返回 → 前端展示
@@ -412,6 +463,7 @@ export const DesktopAppViewer: React.FC<DesktopAppViewerProps> = ({
             setGpuTaskStatus(data.status === 'running' ? 'running' : 'pending');
             if (data.taskId) setRunningTaskId(data.taskId);
             historyListRef.current?.refresh();
+            fetchRunningTrainTasks();
           } else if (data.type === 'gpu_task_complete') {
             console.log(`🎯 [DesktopAppViewer] 收到 GPU 任务完成通知:`, data.appId);
             setIsRunning(false);
@@ -420,6 +472,7 @@ export const DesktopAppViewer: React.FC<DesktopAppViewerProps> = ({
             setRunningTaskId(null);
             handleExecutionResult(data.result);
             historyListRef.current?.refresh();
+            fetchRunningTrainTasks();
           }
         });
       }).catch(err => {
@@ -717,12 +770,13 @@ export const DesktopAppViewer: React.FC<DesktopAppViewerProps> = ({
         }
       };
 
-      // 直接弹 GPU 选择框，不检查代码
+      // 直接弹 GPU 选择框（管理面板：训练中任务 + 规格选择），不检查代码
       if (!gpuConfirmationCallback) {
+        fetchRunningTrainTasks();
         setShowGpuConfirmation(true);
         setGpuConfirmationCallback(() => (gpuOption: any) => executeWithGpu(gpuOption));
-        setIsRunning(false); 
-        return; 
+        setIsRunning(false);
+        return;
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '执行失败';
@@ -741,6 +795,35 @@ export const DesktopAppViewer: React.FC<DesktopAppViewerProps> = ({
     setExecutionTime(undefined);
     await handleGpuTrain();
     setTimeout(() => historyListRef.current?.refresh(), 2000);
+  };
+
+  // 🔥 SSHRun：开机常驻实例（长期租赁，区别于 Train/Run 跑完即销毁）
+  // 只做触点：核心逻辑统一走 sshOpenInstance（与 LLM ssh_instance 工具同一条链路）
+  const handleSshBoot = async (spec: SshSpecOption) => {
+    setShowSshSelector(false);
+    if (isSshBooting) return;
+    setIsSshBooting(true);
+    try {
+      const r = await sshOpenInstance({ instanceType: spec.instanceType, projectId: appId, userId });
+      if (r.ok && r.instance) {
+        toast({
+          title: r.sshReady === false ? '云端实例已开机（免密探测未通过，稍等 1-2 分钟）' : '云端常驻实例已就绪',
+          description: `IP: ${r.instance.public_ip}（${r.instance.instance_type}）。上传文件与运行交给 agent 编排即可，用完记得关机。`,
+        });
+        refreshResidentIndicator();
+      } else {
+        throw new Error(r.error || '开机失败');
+      }
+    } catch (error: any) {
+      console.error('[SSH-RUN] 开机失败:', error);
+      toast({
+        title: '云端实例开机失败',
+        description: error?.message || '未知错误',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSshBooting(false);
+    }
   };
 
   // 🚀 手动保存代码（用户点击Save按钮）
@@ -957,19 +1040,37 @@ export const DesktopAppViewer: React.FC<DesktopAppViewerProps> = ({
           <Button variant="outline" size="sm" onClick={handleSave} className="h-7 w-7 p-0" title={t('workspace.desktopModule.desktopAppViewer.save')}>
             {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
           </Button>
-          {/* 🔥 云端运行/停止按钮（GPU 训练 + CPU 普通计算共用，选择框里显式选规格） */}
+          {/* 🔥 云端运行按钮（恒定样式）：点开 GPU 管理面板（训练中任务查看/停止 + 规格选择）；有任务跑时文字后加绿点 */}
           <Button
             variant="outline" size="sm"
-            onClick={(isGpuTaskRunning || (isRunning && runningTaskId)) ? handleKillTrain : handleRun}
-            className={`h-7 px-2 text-xs font-medium ${isGpuTaskRunning || (isRunning && runningTaskId) ? 'bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 border-red-200' : 'bg-white hover:bg-gray-100'}`}
-            title={(isGpuTaskRunning || (isRunning && runningTaskId)) ? t('workspace.desktopModule.desktopAppViewer.stopTraining') : t('workspace.desktopModule.desktopAppViewer.cloudTraining')}
+            onClick={handleRun}
+            className={`h-7 px-2 text-xs font-medium ${isRunning ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white hover:bg-gray-100'}`}
+            title={t('workspace.desktopModule.desktopAppViewer.cloudTraining')}
           >
-            {(isGpuTaskRunning || (isRunning && runningTaskId)) ? (
-              <span className="flex items-center gap-1"><OctagonX className="w-3 h-3" />Stop</span>
-            ) : isRunning ? (
+            {isRunning ? (
               <span className="flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Run</span>
             ) : (
-              <span className="flex items-center gap-1"><CloudLightning className="w-3 h-3" />Train/Run</span>
+              <span className="flex items-center gap-1">
+                <CloudLightning className="w-3 h-3" />Train | Run
+                {(runningTrainTasks.length > 0 || isGpuTaskRunning) && <span className="h-1.5 w-1.5 rounded-full bg-green-500" />}
+              </span>
+            )}
+          </Button>
+          {/* 🔥 常驻按钮：点开常驻实例管理面板（开机新机 / 查看运行中的多台 / 关机） */}
+          <Button
+            variant="outline" size="sm"
+            onClick={() => setShowSshSelector(true)}
+            disabled={isSshBooting}
+            className={`h-7 px-2 text-xs font-medium ${isSshBooting ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white hover:bg-gray-100'}`}
+            title={isSshBooting ? '开机中...' : '常驻实例（开机 / 查看 / 关机）'}
+          >
+            {isSshBooting ? (
+              <span className="flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />开机中</span>
+            ) : (
+              <span className="flex items-center gap-1">
+                <Cloud className="w-3 h-3" />常驻
+                {hasRunningResident && <span className="h-1.5 w-1.5 rounded-full bg-green-500" />}
+              </span>
             )}
           </Button>
           {/* 🔥 RunDev 按钮：本地代码执行 */}
@@ -983,7 +1084,7 @@ export const DesktopAppViewer: React.FC<DesktopAppViewerProps> = ({
             {isLocalRunning ? (
               <span className="flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Run</span>
             ) : (
-              <span className="flex items-center gap-1"><Terminal className="w-3 h-3" />Run</span>
+              <span className="flex items-center gap-1"><Terminal className="w-3 h-3" />LocalRun</span>
             )}
           </Button>
           {/* 🔥 Stop 按钮：项目有常驻服务进程（dev server）时出现，主动停掉释放端口/内存 */}
@@ -1236,7 +1337,7 @@ export const DesktopAppViewer: React.FC<DesktopAppViewerProps> = ({
         </div>
         )}
         
-        {/* GPU 选择弹窗（GPU 卡型 + CPU 普通计算档位同列表） */}
+        {/* GPU 管理弹窗（训练中任务查看/停止 + GPU 卡型/CPU 档位选择） */}
         <GPUSelectorDialog
           isOpen={showGpuConfirmation}
           userBalance={userBalance}
@@ -1246,6 +1347,23 @@ export const DesktopAppViewer: React.FC<DesktopAppViewerProps> = ({
             setShowGpuConfirmation(false);
             setShowRechargeDialog(true);
           }}
+          runningTasks={runningTrainTasks}
+          onStopTask={handleKillTrain}
+          stoppingTaskId={isKilling ? killTargetTaskId : null}
+        />
+
+        {/* SSH 实例选择弹窗（长期租赁，开机常驻） */}
+        <SSHSelectorDialog
+          isOpen={showSshSelector}
+          userBalance={userBalance}
+          currentAppId={appId}
+          onSelect={handleSshBoot}
+          onCancel={() => setShowSshSelector(false)}
+          onRecharge={() => {
+            setShowSshSelector(false);
+            setShowRechargeDialog(true);
+          }}
+          userId={userId}
         />
 
         {/* 🔥 充值弹窗 - 移到条件块外，全屏时也能显示 */}
@@ -1287,7 +1405,7 @@ export const DesktopAppViewer: React.FC<DesktopAppViewerProps> = ({
 
         {/* 🔥 Kill 训练确认弹窗 */}
         {showKillDialog && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowKillDialog(false)}>
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50" onClick={() => setShowKillDialog(false)}>
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-96 p-6" onClick={e => e.stopPropagation()}>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">{t('workspace.desktopModule.desktopAppViewer.stopTraining')}</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">

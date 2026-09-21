@@ -13,6 +13,7 @@ import { useDesktopAppCache } from '@/hooks/workspace/desktopapp/useDesktopAppCa
 import { appDatabaseService } from '@/utils/apptool/AppDatabaseService';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { sshListActive } from '@/utils/systemtools/sshInstance';
 
 interface DesktopPanelProps {
   userId?: string;
@@ -43,9 +44,26 @@ export const DesktopPanel: React.FC<DesktopPanelProps> = ({ userId, conversation
 
   const { deleteApp: deleteAppHook } = useDesktopApp(userId || user?.id);
 
+  // 🔥 常驻信号源：有活跃常驻实例的项目 appId 集合（卡片段落序号圈变绿，不加新标签）
+  const [residentAppIds, setResidentAppIds] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     fetchApps(true, appTypeFilter);
   }, [fetchApps, appTypeFilter]);
+
+  useEffect(() => {
+    const uid = userId || user?.id;
+    if (!uid) return;
+    sshListActive(uid)
+      .then(r => {
+        if (r.ok) {
+          setResidentAppIds(new Set(
+            (r.instances || []).map((i: any) => i.app_id).filter(Boolean)
+          ));
+        }
+      })
+      .catch(() => { /* 常驻信号失败不影响面板 */ });
+  }, [userId, user?.id, apps]);
 
   const handleAppDelete = useCallback(async (id: string) => {
     try {
@@ -250,6 +268,7 @@ export const DesktopPanel: React.FC<DesktopPanelProps> = ({ userId, conversation
                   <DesktopAppCard
                     app={app}
                     index={idx + 1}
+                    hasResident={residentAppIds.has(app.id)}
                     onAppUpdated={handleAppUpdated}
                     onAppDeleted={handleAppDelete}
                     conversationId={conversationId}

@@ -180,8 +180,7 @@ export const AVAILABLE_TOOLS: ToolDefinition[] = [
   { id: 28, name: "call_memory", displayName: "回忆记忆", tokens: ["gather", "execution"], params: "query" },
   // 🔥 check_user_credits 已合并到 get_account_info（一次调用返回账户信息+积分余额）
   { id: 32, name: "use_guide", displayName: "查阅使用指南", tokens: ["gather", "execution"], params: "query" },
-  { id: 33, name: "create_search_provider", displayName: "创建搜索源", tokens: ["gather", "execution"], params: "name, url" },
-  
+
   // 🔥 项目文件操作工具
   { id: 34, name: "list_project_files", displayName: "列出项目文件树", tokens: ["gather", "execution"], params: "projectId, mode?(默认tree=文件树+depth | overview=README/配置/入口线索 | search=按query搜文件名+文件内容grep)" },
   { id: 35, name: "read_project_file", displayName: "读取项目文件", tokens: ["gather", "execution"], params: "projectId, filePath, pattern?, offset?, limit?" },
@@ -214,6 +213,10 @@ export const AVAILABLE_TOOLS: ToolDefinition[] = [
 
   // 🔥 文件上传工具（从扩展工具迁移为内置工具）
   { id: 49, name: "uploadfiletooss", displayName: "上传文件到云端", tokens: ["gather", "execution"], params: "localPath（或任意包含本地文件路径的参数）" },
+
+  // 🔥 常驻实例租赁：开机云端实例（带公钥免密）→ userpc_shell 直接 ssh 操作 → close 关机结算
+  // projectId 可选：登记项目归属（list 可看出"项目专属机"，跨项目不复用）
+  { id: 50, name: "ssh_instance", displayName: "常驻实例操作", tokens: ["execution"], params: "action?(默认activate), instanceType?(activate必传，如S5.MEDIUM4/GN7.2XLARGE32), instanceId?(close必传/activate复用指定实例), projectId?(activate时登记项目归属)" },
 ];
 
 // 🔥 扩展工具存储（动态添加）

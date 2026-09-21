@@ -227,7 +227,7 @@ async function executeGpuTraining(
       console.warn('⚠️ [RUN-GPU-TRAIN] 余额查询失败，跳过预检:', balanceError);
     }
 
-    loadingToastId = showTrainingStatus('正在train\run...', 'loading');
+    loadingToastId = showTrainingStatus('正在train|run...', 'loading');
 
     if (sessionId) {
       traceProgress(sessionId, 'run_project_oncloud', '开始执行 GPU 训练', { appId, gpuInstanceType });

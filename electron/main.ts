@@ -3,6 +3,14 @@ import path from 'path';
 import { spawn, spawnSync, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import { initAutoUpdater } from './autoUpdater';
+import { startAgentServer } from './agentServer';
+
+/**
+ * 🔥 Headless 分身模式（TEEGAL_HEADLESS=1 或 --headless）：
+ * Linux 无界面服务器上 xvfb 跑同一个包——窗口隐藏（渲染进程照常运行 = 执行宿主），
+ * 跳过自动更新，起 localhost HTTP 入口（agentServer）供母体激活。
+ */
+const isHeadless = process.env.TEEGAL_HEADLESS === '1' || process.argv.includes('--headless');
 
 let mainWindow: BrowserWindow | null = null;
 let backendProcess: ChildProcess | null = null;
@@ -291,10 +299,17 @@ function createWindow() {
     },
     title: 'WorkBees',
     backgroundColor: '#ffffff',
-    show: true, // 直接显示窗口
+    // 🔥 headless 分身：窗口隐藏但渲染进程照常运行（渲染进程是执行宿主，必须活着）
+    show: !isHeadless,
   });
 
   console.log('✅ 窗口创建成功');
+
+  // 🔥 headless 分身：起 localhost HTTP 激活入口（POST /api/agent/query）
+  if (isHeadless) {
+    console.log('🧬 [HEADLESS] 分身模式：窗口已隐藏，激活入口待页面就绪后启动');
+    startAgentServer(() => mainWindow);
+  }
 
   // 开发环境：加载 Vite 开发服务器
   if (process.env.NODE_ENV === 'development') {
@@ -327,8 +342,13 @@ function createWindow() {
     console.log('✅ 页面加载完成');
     
     // 🔥 初始化自动更新（始终初始化，开发环境下只注册 IPC handler）
-    console.log('🔍 [AutoUpdater] 初始化自动更新...');
-    initAutoUpdater(mainWindow!);
+    // 🔥 headless 分身跳过：服务器上无 GUI 更新流程，且不允许分身自我重启打断任务
+    if (isHeadless) {
+      console.log('🧬 [HEADLESS] 跳过自动更新初始化');
+    } else {
+      console.log('🔍 [AutoUpdater] 初始化自动更新...');
+      initAutoUpdater(mainWindow!);
+    }
   });
 
   // 窗口加载错误
