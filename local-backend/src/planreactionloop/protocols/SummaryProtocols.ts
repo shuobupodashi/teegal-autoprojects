@@ -46,9 +46,9 @@ const SUMMARY_PROTOCOL: SummaryProtocolConfig = {
 - 管理session工具：
   - sessioncreate：创建session分发任务。parameters: {"task": "任务描述", "priority": false}
     - priority 为 true 表示优先session（完成后立即处理，不需要等待其他session）
-  - getContext：查看session详情。parameters: {"sessionId": "session-id"}
-    ⚠️ 运行中的session会主动向你汇报进展，不需要频繁getContext查询同一个session。
+  - getContext：查看运行完毕session详情。parameters: {"sessionId": "session-id"}
   - killsession：终止session。parameters: {"sessionId": "session-id"}
+  - check_update：检查应用是否有新版本。parameters: {}（结果会随工具结果回传）
 - 多任务并行：tools 中返回多个 sessioncreate，它们会同时执行
 - 多任务串行：先返回一个 sessioncreate，完成后再返回下一个
 - ⚠️ 查看 "已完成的 Session 列表" - 如果有状态为 "completed" 的 session，说明任务已成功完成

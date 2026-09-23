@@ -118,9 +118,7 @@ export const useGuideKnowledgeBase: KnowledgeItem[] = [
     answer: `工具分类：
 • userpc_xxx：操作本地电脑（shell/python/截图等）
 • web_xxx：公域资源（搜索/URL读取等）
-• 其他工具：平台核心功能（项目/GPU训练/图像/视频/邮件等）
-
-🔥 新版工具名称已简化，无需前缀即可直接使用。`,
+• 其他工具：平台核心功能（项目/GPU训练/文件/凭据等）`,
     keywords: ["工具系统", "工具介绍", "userpc", "web", "工具分类", "有哪些工具"],
     category: "platform"
   },
@@ -151,6 +149,21 @@ export const useGuideKnowledgeBase: KnowledgeItem[] = [
 注册表 registry.json 格式：
 { "tools": [{ "name": "工具名", "file": "你的工具名.js", "description": "...", "tokens": ["execution"], "params": "参数名" }] }`,
     keywords: ["创建工具", "自动创建工具", "扩展工具", "基础项目", "新工具", "自定义工具", "创造", "create tool", "tool", "registry.json", "模板", "template"],
+    category: "platform"
+  },
+  {
+    question: "Agent 能自主更新平台吗？",
+    answer: `可以（Autoself）。BootCode 项目就是平台自身源码，Agent 可自主改代码并发布新版本：
+
+1. 在 BootCode 项目修改代码，递增 package.json 的 version（不递增则客户端不会触发更新）
+2. git push 到用户自己的 GitHub 仓库（git remote set-url origin https://github.com/USER/REPO.git）
+3. npm run electron:package:win 打包
+4. gh release create vX.Y.Z dist/*.exe dist/latest.yml 发布 Release
+5. 用 list_credentials 设置更新源：action='set', name='updateSourceUrl', value='https://github.com/USER/REPO/releases/latest/download/'（一次配置，后续发版无需再改）
+6. 各机器用 check_update 检查更新，发现新版会回复用户并延时自动安装
+
+完整约定（官方对齐/冲突处理/发布自查）见 BootCode 项目内 AGENTS.md。`,
+    keywords: ["自主更新", "自我迭代", "自迭代", "autoself", "更新平台", "发布新版本", "check_update", "updateSourceUrl", "更新源", "agent迭代", "迭代自己", "bootcode", "发版"],
     category: "platform"
   },
   {
@@ -284,9 +297,9 @@ return { success: true, data: { greeting: '你好，' + name } };
     answer: `有两种方式：
 
 1. GPU训练（推荐用于深度学习）
-用 run_project_oncloud 工具，需指定 gpuInstanceType。
+用 run_project_oncloud 工具，需指定 instanceType。
 
-🔥 先用 list_instance_types 工具查询可用规格和价格，再选择合适的 GPU。
+🔥 先用 list_instance_types 工具查询可用规格和价格，再选择合适的实例。
 
 示例流程：
 {
@@ -298,18 +311,19 @@ return { success: true, data: { greeting: '你好，' + name } };
   "name": "run_project_oncloud",
   "parameters": {
     "projectId": "项目ID（32位）",
-    "gpuInstanceType": "ecs.gn6i-c4g1.xlarge"  // 从 list_instance_types 返回中选择
+    "instanceType": "ecs.gn6i-c4g1.xlarge"  // 从 list_instance_types 返回中选择
   }
 }
 
 注意：
-- gpuInstanceType 格式决定云服务商：ecs.* → 阿里云，GN* → 腾讯云
+- instanceType 格式决定云服务商与机型：ecs.* → 阿里云GPU，GN* → 腾讯云GPU，S5.* → 阿里云CPU
 - 不要手动列举规格，用 list_instance_types 获取最新信息
 - ⚠️ 与用户沟通时，不要提及云厂商和实例编码(instanceType)，只说GPU类型(如T4/A10)和价格即可，避免暴露GPU来源
 
 2. CPU执行
 - 前端点击"运行"按钮
 - 用 userpc_run_python / run_project_onlocal 工具执行本地脚本
+- 也可云端 CPU 执行：run_project_oncloud(instanceType='S5.*')，适合本地环境缺依赖的任务
 
 🔥 重要提示：本地执行仅适合轻量级 Python 脚本、数据处理、Web 开发等 CPU 任务。
 如果代码包含 torch、cuda、transformers 等深度学习组件，强烈建议使用 GPU 训练（run_project_oncloud），原因：
@@ -390,7 +404,7 @@ save_project_file 只用于保存代码，不生成代码。必须提供完整�
     question: "怎么训练模型？",
     answer: `用run_project_oncloud工具启动GPU训练。
 
-必须传入gpuInstanceType参数。
+必须传入instanceType参数（GPU训练先 list_instance_types 查询实时价格与规格，下列价格仅供参考）。
 
 阿里云规格（ecs.*格式）：
 - ecs.gn6i-c4g1.xlarge (T4 1卡4核16G，¥15.0/小时，最便宜)
@@ -416,17 +430,17 @@ save_project_file 只用于保存代码，不生成代码。必须提供完整�
   "name": "run_project_oncloud",
   "parameters": {
     "projectId": "项目ID",
-    "gpuInstanceType": "ecs.gn6i-c4g1.xlarge"
+    "instanceType": "ecs.gn6i-c4g1.xlarge"
   }
 }
 
 也可传入本地文件路径：
 {
   "filePath": "C:/project/train.py",
-  "gpuInstanceType": "ecs.gn6i-c4g1.xlarge"
+  "instanceType": "ecs.gn6i-c4g1.xlarge"
 }
 
-注意：系统会根据gpuInstanceType格式自动选择云服务商（ecs.*→阿里云，GN*→腾讯云）
+注意：系统会根据instanceType格式自动选择云服务商与机型（ecs.*→阿里云GPU，GN*→腾讯云GPU，S5.*→阿里云CPU）
 
 ⚠️ 与用户沟通时，不要提及云厂商和实例编码(instanceType)，只说GPU类型(如T4/A10/V100)和价格即可，避免暴露GPU来源。`,
     keywords: ["训练", "run_project_oncloud", "开始训练", "模型训练", "train", "GPU训练", "深度学习"],
@@ -481,7 +495,7 @@ save_project_file 只用于保存代码，不生成代码。必须提供完整�
 创建成功后返回 projectId，然后用 save_project_file(projectId='xxx', filePath='main.py', content='...') 写入代码文件。
 项目定位/用途变化时，用 upsert_project(projectId='xxx', description='...') 更新自述，方便后续会话快速理解项目。
 
-🔥 GPU 训练项目用 run_project_oncloud(projectId='xxx', gpuInstanceType='xxx') 启动训练。
+🔥 GPU 训练项目用 run_project_oncloud(projectId='xxx', instanceType='ecs.*') 启动训练。
 🔥 CPU 项目用 run_project_onlocal(projectId='xxx') 本地执行，或在前端点击"运行"按钮。`,
     keywords: ["创建项目", "upsert_project", "create_project", "create_train_project", "新建项目", "创建应用", "对比实验", "新项目", "create project", "新建训练项目", "更新项目"],
     category: "platform"
@@ -542,8 +556,8 @@ save_project_file 只用于保存代码，不生成代码。必须提供完整�
   },
   {
     question: "怎么导入外部数据？",
-    answer: `1) URL直接加载：代码中用requests/pandas读取网络数据
-2) 本地数据上传：运行Python/Shell获取数据后，用uploadfiletooss上传得到URL，训练代码直接加载`,
+    answer: `1) 本地数据上传（GPU训练必用）：运行Python/Shell获取数据后，用uploadfiletooss上传得到URL，训练代码从用户数据目录加载
+⚠️ 阿里云 GPU 训练环境是封闭网络，代码不能联网下载数据（requests/huggingface下载都会失败），数据必须先上传`,
     keywords: ["导入数据", "外部数据", "数据导入", "上传数据", "huggingface", "akshare"],
     category: "data"
   },

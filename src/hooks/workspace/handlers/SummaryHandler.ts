@@ -13,6 +13,7 @@ type ProcessEvent =
   | { type: 'contextReady'; sessionId: string; context: Array<{ apiRole?: string; content?: string; result?: string }> }
   | { type: 'sessionKilled'; sessionId: string }
   | { type: 'sessionLimitReached'; message: string }
+  | { type: 'checkUpdateDone' }
   | { type: 'timeout' };
 
 /**
@@ -484,6 +485,8 @@ export class SummaryHandler {
             actions: ['session_limit_reached'],
             result: event.message,
           });
+        } else if (event.type === 'checkUpdateDone') {
+          // 检查更新结果已在 executeActions 写入 callHistory，直接进入 gather 让 LLM 组织回复
         } else if (event.type === 'timeout') {
           console.log('[SUMMARY-HANDLER] 事件超时');
           if (this.runningSessionPromises.size === 0) {
@@ -835,6 +838,7 @@ export class SummaryHandler {
     const sessionTasks: Array<{ task: string; priority: boolean }> = [];
     const getContextRequests: string[] = [];
     const killSessionRequests: string[] = [];
+    let hasCheckUpdate = false;
 
     for (const tool of tools) {
       if (tool.name === 'sessioncreate') {
@@ -843,14 +847,22 @@ export class SummaryHandler {
         getContextRequests.push(tool.parameters.sessionId || '');
       } else if (tool.name === 'killsession') {
         killSessionRequests.push(tool.parameters.sessionId || '');
+      } else if (tool.name === 'check_update') {
+        hasCheckUpdate = true;
       }
     }
 
     // 🔥 转换为 callHistory 用的字符串标签
     const actionLabels = tools.map(t =>
       t.name === 'sessioncreate' ? `sessioncreate: ${t.parameters.task || ''}`
+      : t.name === 'check_update' ? 'check_update'
       : `${t.name}: ${t.parameters.sessionId || ''}`
     );
+
+    // 🔥 4.0 处理 check_update（结果写入 callHistory，触发事件让循环继续 → LLM 组织回复）
+    if (hasCheckUpdate) {
+      await this.performCheckUpdate(callHistory, depth, actionLabels);
+    }
 
     // 🔥 4.1 处理 killSession
     for (const sessionId of killSessionRequests) {
@@ -941,6 +953,73 @@ export class SummaryHandler {
       this.triggerEvent({ type: 'contextReady', sessionId: getContextRequests[0], context: contexts });
       return;
     }
+  }
+
+  /**
+   * 🔥 check_update：检查应用更新
+   * 有新版（Windows）时设定时自动安装，给 LLM 留出回复用户的时间；
+   * 结果写入 callHistory 后触发 checkUpdateDone 事件，循环继续 → LLM 组织回复
+   */
+  private async performCheckUpdate(
+    callHistory: Array<{ depth: number; actions: string[]; result: string }>,
+    depth: number,
+    actionLabels: string[]
+  ): Promise<void> {
+    const electron = (window as any).electron;
+    let resultText: string;
+
+    try {
+      if (!electron?.updater) {
+        resultText = 'check_update 失败：仅桌面端支持检查更新';
+      } else {
+        const appVersion = (await electron.getAppVersion?.()) || '';
+        const res = await electron.updater.check();
+        const latest = res?.updateInfo?.version;
+
+        if (!res?.success || !latest || !appVersion) {
+          resultText = `check_update 失败：${res?.error || '未获取到版本信息'}（当前版本 ${appVersion || '未知'}）`;
+        } else if (latest === appVersion) {
+          resultText = `check_update 完成：当前版本 ${appVersion} 已是最新，无可用更新。`;
+        } else if (electron.platform === 'darwin') {
+          resultText = `check_update 完成：当前版本 ${appVersion}，发现新版本 ${latest}。macOS 无自动安装，将通知用户手动下载。请立即回复用户版本信息并尽快结束对话。`;
+        } else {
+          this.scheduleInstall(2);
+          resultText = `check_update 完成：当前版本 ${appVersion}，发现新版本 ${latest}，已设定约 2 分钟后自动安装。请立即回复用户（新版本 ${latest}，当前版本 ${appVersion}，约 2 分钟后自动安装，请尽快结束对话），然后结束流程等待安装。`;
+        }
+      }
+    } catch (e: any) {
+      resultText = `check_update 失败：${e?.message || e}`;
+    }
+
+    callHistory.push({ depth, actions: actionLabels, result: resultText });
+    this.triggerEvent({ type: 'checkUpdateDone' });
+  }
+
+  /**
+   * 🔥 定时自动安装：到点后确认更新已下载完成（status=ready）再安装；
+   * 未下载完则再等一个周期重试，最多 3 次
+   */
+  private scheduleInstall(minutes: number): void {
+    const electron = (window as any).electron;
+    if (!electron?.updater) return;
+    const waitMs = minutes * 60 * 1000;
+
+    const tryInstall = async (retries: number): Promise<void> => {
+      try {
+        const status = await electron.updater.getStatus();
+        if (status?.status === 'ready') {
+          await electron.updater.install();
+        } else if (retries > 0) {
+          setTimeout(() => { tryInstall(retries - 1); }, waitMs);
+        } else {
+          console.warn('[SUMMARY-HANDLER] 更新尚未下载完成，放弃本次自动安装（下次启动会重新检查）');
+        }
+      } catch (e) {
+        console.warn('[SUMMARY-HANDLER] 自动安装更新失败:', e);
+      }
+    };
+
+    setTimeout(() => { tryInstall(3); }, waitMs);
   }
 
   /**

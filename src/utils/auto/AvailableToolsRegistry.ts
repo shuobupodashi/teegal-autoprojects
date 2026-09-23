@@ -185,7 +185,7 @@ export const AVAILABLE_TOOLS: ToolDefinition[] = [
   { id: 34, name: "list_project_files", displayName: "列出项目文件树", tokens: ["gather", "execution"], params: "projectId, mode?(默认tree=文件树+depth | overview=README/配置/入口线索 | search=按query搜文件名+文件内容grep)" },
   { id: 35, name: "read_project_file", displayName: "读取项目文件", tokens: ["gather", "execution"], params: "projectId, filePath, pattern?, offset?, limit?" },
   { id: 36, name: "save_project_file", displayName: "保存项目文件", tokens: ["gather", "execution"], params: "projectId, filePath, content" },
-  { id: 47, name: "edit_project_file", displayName: "局部编辑项目文件", tokens: ["gather", "execution"], params: "projectId, filePath, edits[{oldText,newText}]" },
+  { id: 47, name: "edit_project_file", displayName: "编辑项目文件", tokens: ["gather", "execution"], params: "projectId, filePath, edits[{oldText,newText}]" },
   { id: 37, name: "delete_project_file", displayName: "删除项目文件", tokens: ["gather", "execution"], params: "projectId, filePath" },
   
   // 🔥 新增：训练任务历史工具
@@ -208,8 +208,8 @@ export const AVAILABLE_TOOLS: ToolDefinition[] = [
   // 🔥 数据环境工具
   { id: 46, name: "list_cloud_files", displayName: "查询云端文件列表", tokens: ["gather", "execution"], params: "" },
 
-  // 🔥 凭据管理工具（LLM 只能看到凭据名称，看不到明文值）
-  { id: 48, name: "list_credentials", displayName: "查询凭据列表", tokens: ["gather", "execution"], params: "无（查到后可在shell/代码中用os.environ['凭据名']自动注入）" },
+  // 🔥 凭据管理工具（LLM 只能看到凭据名称，看不到明文值；param 型参数可写）
+  { id: 48, name: "list_credentials", displayName: "查询凭据/设置参数", tokens: ["gather", "execution"], params: "action?(list=查凭据与参数; set=改参数,传name+value,仅限param型)" },
 
   // 🔥 文件上传工具（从扩展工具迁移为内置工具）
   { id: 49, name: "uploadfiletooss", displayName: "上传文件到云端", tokens: ["gather", "execution"], params: "localPath（或任意包含本地文件路径的参数）" },
