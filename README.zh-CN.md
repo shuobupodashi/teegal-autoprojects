@@ -1,4 +1,4 @@
-# Teegal - 从AutoResearch到AutoProjects
+# Teegal - 从AutoResearch到AutoProjects，再到Autoself
 
 <div align="center">
 
@@ -20,6 +20,9 @@ Teegal 起源于一个想用ML方法研究量化的小团队自我补足：我�
 
 ### 3. Projects Auto（Project-level Automation）—— 从 AutoResearch 泛化到 AutoProjects
 AutoResearch 的方法论不止于研究：以项目为单位组织自动化——多阶段任务编排、产物统一落盘管理、断点恢复与执行对账，让 Agent 的产出沉淀为项目资产，而非一次性对话。
+
+### 4. Autoself（Agent 自迭代）—— Agent 能自己迭代自己
+系统自身的源码以基础项目（base-bootcode）的形式向 Agent 完全开放：Agent 可自主阅读并修改这些源码，再经版本打包、Release 发布与更新源维护，把新版本经自动更新链路送回每一台装机——从"写软件"到"写自己"，Agent 的迭代闭环就此打通。
 
 ## 功能特性
 

@@ -1,4 +1,4 @@
-# Teegal - From AutoResearch to AutoProjects
+# Teegal - From AutoResearch to AutoProjects, and to Autoself
 
 <div align="center">
 
@@ -20,6 +20,9 @@ Complex tasks are automatically decomposed into subtasks in a recursive loop: ex
 
 ### 3. Projects Auto — from AutoResearch to AutoProjects
 The methodology generalizes beyond research: automation is organized around projects — multi-stage task orchestration, unified artifact management, resumable runs and execution reconciliation. Agent output accumulates as project assets instead of one-off conversations.
+
+### 4. Autoself — the agent iterates itself
+The system's own source code is fully exposed to the agent as a base project (base-bootcode): the agent can read and modify it, then autonomously handle version packaging, release publishing, and update-source maintenance — delivering the new version back to every installed machine through the auto-update chain. From "writing software" to "writing itself": the agent's iteration loop is closed.
 
 ## Features
 
