@@ -30,7 +30,9 @@ router.post('/open', async (req: Request, res: Response) => {
       res.status(400).json({ success: false, error: '缺少 instanceType' });
       return;
     }
-    const cloud = await rentalRequest<any>('POST', '/open', { instanceType, publicKey });
+    // 🔥 透传 userId：worker 密钥模式下云端按它归属账本（JWT 模式以 token 为准，忽略此字段）；
+    //    不传则云端登记 user_id='unknown'，对账按 userId 过滤查不到 → 本地被误关、前端看不到（机子还在扣费）
+    const cloud = await rentalRequest<any>('POST', '/open', { instanceType, publicKey, userId });
     if (!cloud?.success || !cloud.rentalId) {
       res.status(502).json({ success: false, error: '云端开机请求失败' });
       return;
@@ -151,7 +153,14 @@ router.get('/resources', async (req: Request, res: Response) => {
             }
           } else if (rec.status === 'running') {
             // 云端已关（超时/余额不足/手动）→ 本地收尾
-            sshResourceDAO.markClosedByCloudKey(rec.cloud_rental_id || rec.cloud_instance_id);
+            // 🔥 防误关：归属缺失/认证视角切换时云端按 userId 过滤会查不到（列表为空 ≠ 已关机），
+            //    刚开机 30 分钟内的记录不动，留给下轮对账确认（与云端 sweep 的 30 分钟僵死对称）
+            const ageMin = (Date.now() - rec.created_at) / 60000;
+            if (ageMin < 30) {
+              console.warn(`[RENTAL-SYNC] 云端未见 ${rec.cloud_rental_id || rec.cloud_instance_id} 但开机不足 30 分钟，跳过收尾防误关`);
+            } else {
+              sshResourceDAO.markClosedByCloudKey(rec.cloud_rental_id || rec.cloud_instance_id);
+            }
           }
           // booting 且云端查不到：可能仍在创建，不动（30 分钟僵死由云端 sweep 处理）
           if (rec.cloud_rental_id) ownKeys.add(rec.cloud_rental_id);

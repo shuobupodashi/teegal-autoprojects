@@ -36,8 +36,8 @@ export const BOOT_PROJECT_ID = 'base-bootcode';
  * 🔥 源列表：官方源在前，国内镜像兜底（镜像同步延迟可接受，浅克隆只拿最新代码）
  */
 const BOOT_REPO_SOURCES = [
-  'https://github.com/shuobupodashi/teegal-autoprojects.git',
-  'https://gitclone.com/github.com/shuobupodashi/teegal-autoprojects.git',
+  'https://github.com/teegalauto/teegal-autoprojects.git',
+  'https://gitclone.com/github.com/teegalauto/teegal-autoprojects.git',
 ];
 const BOOT_REPO_DIR = 'teegal-autoprojects';
 

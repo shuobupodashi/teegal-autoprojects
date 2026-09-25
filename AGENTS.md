@@ -8,7 +8,7 @@
   ```bash
   git remote set-url origin https://github.com/USER/REPO.git
   ```
-- **官方母仓**：`https://github.com/shuobupodashi/teegal-autoprojects.git`
+- **官方母仓**：`https://github.com/teegalauto/teegal-autoprojects.git`
   无需配置 remote，需要时按 URL 直接 fetch
 
 ## 日常操作分工
@@ -21,11 +21,11 @@
 
 ```bash
 # 策略 1：保留本地修改，合并官方新版本（可能冲突，逐个解决）
-git fetch https://github.com/shuobupodashi/teegal-autoprojects.git main
+git fetch https://github.com/teegalauto/teegal-autoprojects.git main
 git merge FETCH_HEAD
 
 # 策略 2：齐头重新分叉（丢弃本地未推送的修改，以官方为准）
-git fetch https://github.com/shuobupodashi/teegal-autoprojects.git main
+git fetch https://github.com/teegalauto/teegal-autoprojects.git main
 git reset --hard FETCH_HEAD
 ```
 
